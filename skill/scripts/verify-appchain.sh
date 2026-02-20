@@ -125,7 +125,7 @@ if [ "$CHECK_GAS_STATION" = true ]; then
   if command -v weave >/dev/null 2>&1; then
     echo "--- Gas Station Status ---"
     weave gas-station show
-    
+
     # Try to extract address and check L2 balance
     gs_addr=$(weave gas-station show | grep "Initia Address:" | awk '{print $4}')
     if [[ -n "$gs_addr" ]]; then
@@ -139,7 +139,7 @@ fi
 
 if [ "$CHECK_BOTS" = true ]; then
   echo "--- Interwoven Bots Status ---"
-  
+
   # Check Executor
   executor_running=false
   if [[ "$OSTYPE" == "darwin"* ]]; then

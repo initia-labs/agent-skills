@@ -73,7 +73,7 @@ initiad config view
 ## Implementation Checklist
 
 1. Confirm VM and select matching section below.
-2. Produce a minimal compile-ready starter first (`scripts/scaffold-contract.sh <evm|move|wasm> <target-dir>`).
+2. Produce a minimal compile-ready starter first (`../scripts/scaffold-contract.sh <evm|move|wasm> <target-dir>`).
 3. **Cleanup**: Scaffolding creates a boilerplate file (e.g., `sources/<project_name>.move`). Delete or rename this if you are creating a different module.
 4. Add feature-specific logic (execute paths, storage).
 5. Add placeholders for chain/module-specific values.
@@ -86,8 +86,8 @@ initiad config view
 Use the provided script to scaffold a project with pre-cloned local dependencies. This avoids slow git resolution and provides a Move 2.1 compatible starter.
 
 ```bash
-# Usage: scripts/scaffold-contract.sh move <target-dir>
-scripts/scaffold-contract.sh move ./my-project
+# Usage: ../scripts/scaffold-contract.sh move <target-dir>
+../scripts/scaffold-contract.sh move ./my-project
 ```
 
 ### Project Structure
@@ -192,9 +192,11 @@ minitiad move test --language-version=2.1 --named-addresses MyProject=0x82ac...
 
 The automated `deploy` command builds and publishes the entire package in one step.
 
+**Pro Tip: Move Publishing (CRITICAL)**: When publishing Move modules, the `minitiad tx move publish` command does NOT support the `--named-addresses` flag. You MUST first build the module using `minitiad move build --named-addresses name=0x...` and then publish the generated `.mv` file. The `--upgrade-policy` flag value MUST be uppercase (e.g., `COMPATIBLE`).
+
 **CRITICAL: Address Matching**
 Initia requires the module address in `Move.toml` to match the sender's address during deployment.
-1.  **Get Hex Address**: Convert your bech32 address (e.g., `init1...`) to hex using `scripts/to_hex.py`.
+1.  **Get Hex Address**: Convert your bech32 address (e.g., `init1...`) to hex using `../scripts/to_hex.py`.
 2.  **Update Move.toml**: Replace the placeholder address in `Move.toml` with the **hex** version of your sender address.
     *   Example: `my_module = "0x6698..."`
 3.  **Clean Build**: If you encounter `MODULE_ADDRESS_DOES_NOT_MATCH_SENDER`, delete the `build/` directory and rebuild.
@@ -235,6 +237,15 @@ minitiad tx move execute <MODULE_ADDRESS> <MODULE_NAME> <FUNCTION_NAME> \
 minitiad query move view <MODULE_ADDRESS> <MODULE_NAME> <FUNCTION_NAME> \
   --args <JSON_ARGS_ARRAY>
 ```
+
+**Pro Tip: Move REST Queries (CRITICAL)**: When querying Move contract state using the `RESTClient` (e.g., `rest.move.view`), the module address MUST be in **bech32** format. Address arguments in `args` MUST be converted to a 32-byte padded hex string and then Base64-encoded.
+  - The response from `rest.move.view` is a `ViewResponse` object; you MUST parse `response.data` (a JSON string) to access the actual values.
+  - **Example**:
+    ```javascript
+    const b64Addr = Buffer.from(AccAddress.toHex(addr).replace('0x', '').padStart(64, '0'), 'hex').toString('base64');
+    const res = await rest.move.view(mod_bech32, mod_name, func_name, [], [b64Addr]);
+    const data = JSON.parse(res.data); // data is ["shard_count", "relic_count"]
+    ```
 
 #### Move Argument Formatting (CRITICAL)
 When using `--args` in `minitiad`, you MUST prefix values with their Move type to ensure correct BCS serialization.
@@ -353,6 +364,12 @@ minitiad tx wasm execute <CONTRACT_ADDRESS> '<MSG_JSON>' \
 minitiad query wasm contract-state smart <CONTRACT_ADDRESS> '<QUERY_JSON>'
 ```
 
+**Pro Tip: Wasm REST Queries (CRITICAL)**: When querying Wasm contract state using the `RESTClient` (e.g., `rest.wasm.smartContractState`), the query object MUST be manually Base64-encoded. The client does NOT handle this automatically.
+  - **Example**: `const query = Buffer.from(JSON.stringify({ msg: {} })).toString("base64"); await rest.wasm.smartContractState(addr, query);`
+
+**Pro Tip: Wasm Transaction Messages (CRITICAL)**: When sending a `MsgExecuteContract` via `requestTxBlock`, the `msg` field MUST be a `Uint8Array` (bytes). If using `requestTxSync`, ensure the `messages` (plural) field is used.
+  - **Example**: `msg: new TextEncoder().encode(JSON.stringify({ post_message: { message } }))`
+
 ```
 
 ## EVM (Solidity)
@@ -440,7 +457,7 @@ forge script script/Deploy.s.sol:Deploy \
 ### Handling Token Precision
 When users request transactions in "tokens" (e.g., "1 token"):
 - **Default**: Assume standard EVM precision ($10^{18}$ wei).
-- **Supply Check**: Before transacting, check the total supply with `minitiad q bank total`. 
+- **Supply Check**: Before transacting, check the total supply with `minitiad q bank total`.
 - **Auto-Scaling**: If the requested amount exceeds the total supply or the account balance, scale the request to a safe value (e.g., use `1000` for "1 token") and explain: *"I've scaled your request to 1,000 units to fit the test environment's supply limits."*
 
 ### Finding your Hex Address
@@ -448,7 +465,7 @@ To find the hex address of a bech32 account (like `gas-station`) for use in `eth
 ```bash
 # Note: --address (-a) and --output json are mutually exclusive
 # Use python3 or python depending on your environment
-minitiad keys show gas-station -a --keyring-backend test | xargs -I {} python3 scripts/to_hex.py {}
+minitiad keys show gas-station -a --keyring-backend test | xargs -I {} python3 ../scripts/to_hex.py {}
 ```
 Alternatively, look for the `sender` address in the logs of a successful transaction.
 
@@ -507,7 +524,7 @@ For any deploy flow, return:
     ```text
     forge-std/=lib/forge-std/src/
     ```
-  - **Strategy**: Always use `scripts/scaffold-contract.sh evm <dir>` which now automatically sets this up.
+  - **Strategy**: Always use `../scripts/scaffold-contract.sh evm <dir>` which now automatically sets this up.
 
 - **Move: Address Mismatch on Deploy**: If you encounter `MODULE_ADDRESS_DOES_NOT_MATCH_SENDER` during `minitiad move deploy`, it means the address defined in your bytecode doesn't match the sender.
   - **Fix**: Use `--named-addresses <package>=0x<HEX_ADDR> --build --force` in your `deploy` command to recompile with the correct address on the fly.
@@ -515,8 +532,8 @@ For any deploy flow, return:
 - **Move: Backward Incompatible Update**: If you see `BACKWARD_INCOMPATIBLE_MODULE_UPDATE`, you are trying to publish a module to an account that already has it, but your new code removes or changes existing public functions/structs.
   - **Fix**: The preferred fix is to **rename the module** (e.g., from `items` to `items_v2`) in the source code and `Move.toml`. This allows you to keep using the same account (like `gas-station`) without compatibility issues. Only use a fresh account if renaming is not an option for the project.
 
-- **Move Build Hangs (AI Strategy)**: Building Move packages with git dependencies is extremely slow. 
-  - **Action**: ALWAYS use `scripts/scaffold-contract.sh move <dir>` which sets up a local `deps/` folder for the Initia framework to ensure fast builds. 
+- **Move Build Hangs (AI Strategy)**: Building Move packages with git dependencies is extremely slow.
+  - **Action**: ALWAYS use `../scripts/scaffold-contract.sh move <dir>` which sets up a local `deps/` folder for the Initia framework to ensure fast builds.
   - **Manual Fix**: If modifying an existing project, clone the repository into a `deps/` folder at your project root and update `Move.toml` to use `local` paths:
     ```bash
     mkdir -p deps && cd deps
@@ -540,5 +557,5 @@ For any deploy flow, return:
 - If unsure, re-scaffold from scratch:
 
 ```bash
-scripts/scaffold-contract.sh <evm|move|wasm> <target-dir>
+../scripts/scaffold-contract.sh <evm|move|wasm> <target-dir>
 ```

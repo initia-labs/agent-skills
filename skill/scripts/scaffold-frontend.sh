@@ -137,7 +137,7 @@ const customChain = {
   },
   metadata: {
     is_l1: false,
-    minitia: { 
+    minitia: {
       type: 'minimove', // Use 'minimove', 'miniwasm', or 'minievm'
     },
   },
@@ -147,7 +147,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <InterwovenKitProvider 
+        <InterwovenKitProvider
           {...TESTNET}
           defaultChainId="your-appchain-id" // Update to match your rollup
           customChain={customChain}
@@ -226,28 +226,28 @@ function App() {
   return (
     <div style={containerStyle}>
       <header style={headerStyle}>
-        <h1 style={{ 
-          margin: 0, 
-          fontSize: '20px', 
-          fontWeight: '900', 
+        <h1 style={{
+          margin: 0,
+          fontSize: '20px',
+          fontWeight: '900',
           letterSpacing: '-0.5px',
           color: '#0f172a',
           textTransform: 'uppercase'
         }}>
           $pkg_name
         </h1>
-        
+
         <div>
           {!initiaAddress ? (
-            <button 
-              onClick={openConnect} 
+            <button
+              onClick={openConnect}
               style={connectButtonStyle}
             >
               Connect Wallet
             </button>
           ) : (
-            <button 
-              onClick={openWallet} 
+            <button
+              onClick={openWallet}
               style={pillButtonStyle}
             >
               <span style={{
@@ -263,8 +263,8 @@ function App() {
         </div>
       </header>
 
-      <main style={{ 
-        width: '100%', 
+      <main style={{
+        width: '100%',
         maxWidth: '800px',
         backgroundColor: '#ffffff',
         borderRadius: '24px',

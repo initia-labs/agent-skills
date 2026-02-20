@@ -127,5 +127,5 @@ When `chainId` or JSON-RPC is unknown, run `runtime-discovery.md`, then confirm 
 Sanity check provider setup:
 
 ```bash
-scripts/check-provider-setup.sh --mode evm-rpc <providers-file.tsx>
+../scripts/check-provider-setup.sh --mode evm-rpc <providers-file.tsx>
 ```

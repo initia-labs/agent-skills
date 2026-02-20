@@ -56,20 +56,20 @@ Use this schema for `~/.weave/launch_config.json`. Keep field names in snake_cas
 
 ## Generating `system_keys` Safely
 
-Use `scripts/generate-system-keys.py` with explicit VM selection so default `genesis_accounts[].coins` matches denom expectations:
+Use `../scripts/generate-system-keys.py` with explicit VM selection so default `genesis_accounts[].coins` matches denom expectations:
 
 ```bash
 # EVM default coins: 1GAS
-python3 scripts/generate-system-keys.py --vm evm
+python3 ../scripts/generate-system-keys.py --vm evm
 
 # Move/Wasm default coins: 1umin
-python3 scripts/generate-system-keys.py --vm move
+python3 ../scripts/generate-system-keys.py --vm move
 ```
 
 By default, mnemonics are redacted. To include real mnemonics, require file output:
 
 ```bash
-python3 scripts/generate-system-keys.py --vm wasm --include-mnemonics --output ./system-keys.json
+python3 ../scripts/generate-system-keys.py --vm wasm --include-mnemonics --output ./system-keys.json
 ```
 
 ## Example (Testnet + EVM)

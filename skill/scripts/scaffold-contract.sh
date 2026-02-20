@@ -27,7 +27,7 @@ case "$vm" in
   move)
     mkdir -p "$target/sources"
     mkdir -p "$target/deps"
-    
+
     echo "Cloning movevm locally for fast builds (latest main)..."
     git clone --depth 1 https://github.com/initia-labs/movevm.git "$target/deps/movevm" > /dev/null 2>&1 || echo "Warning: git clone failed, check connectivity."
 
@@ -235,7 +235,7 @@ contract Deploy is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy logic here
-        
+
         vm.stopBroadcast();
     }
 }

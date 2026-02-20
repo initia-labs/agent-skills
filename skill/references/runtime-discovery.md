@@ -7,7 +7,7 @@ Use this flow whenever VM, `chain_id`, or endpoint values are unknown.
 The fastest way to verify if a local appchain is running and healthy:
 
 ```bash
-scripts/verify-appchain.sh --gas-station --bots
+../scripts/verify-appchain.sh --gas-station --bots
 ```
 
 This will:

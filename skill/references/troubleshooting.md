@@ -36,7 +36,7 @@ curl http://localhost:26657/status
 Then run:
 
 ```bash
-scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
+../scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
 ```
 
 Actions:
@@ -78,7 +78,7 @@ Checks:
 Run:
 
 ```bash
-scripts/check-provider-setup.sh --mode interwovenkit <providers-file.tsx>
+../scripts/check-provider-setup.sh --mode interwovenkit <providers-file.tsx>
 ```
 
 ### 6. Chain not found / wrong chain selected
@@ -139,7 +139,7 @@ Checks:
 - Confirm VM target first (`evm`, `move`, `wasm`).
 - Confirm toolchain and dependency set for that VM.
 - **Move 2.0 Compatibility:** Projects default to Move 2.0 (`edition = "2024.alpha"`). If you see "unsupported language construct", ensure your `minitiad` version is `v1.1.10` or higher. You can update it by running `make install` in the `minimove` repository.
-- **Hex Addresses:** `Move.toml` requires addresses in hex format (`0x...`). Use `scripts/to_hex.py <address>` to convert Bech32 addresses.
+- **Hex Addresses:** `Move.toml` requires addresses in hex format (`0x...`). Use `../scripts/to_hex.py <address>` to convert Bech32 addresses.
 - **Library Naming:** Use `initia_std` (not `initia_stdlib`) when importing core modules: `use initia_std::table;`.
 - **Receiver Syntax:** Not all standard library modules support receiver functions yet. If `account.address_of()` fails, use the classic `signer::address_of(account)`.
 
@@ -147,7 +147,7 @@ Actions:
 - Re-scaffold using:
 
 ```bash
-scripts/scaffold-contract.sh <evm|move|wasm> <target-dir>
+../scripts/scaffold-contract.sh <evm|move|wasm> <target-dir>
 ```
 
 ## Configuration

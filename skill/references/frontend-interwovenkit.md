@@ -103,7 +103,7 @@ Avoid hard-coded version matrices in this skill.
 7. Prefer `rest.move.resource` for state queries as it is more robust than view functions.
 8. **IMPORTANT (v2.4.0)**: Use `openConnect` (not `openModal`) to open the wallet connection modal. Extract it from the `useInterwovenKit` hook.
 9. **IMPORTANT (v2.4.0)**: `useInterwovenKit` does NOT export a `rest` client. You MUST instantiate `RESTClient` from `@initia/initia.js` manually for queries.
-10. **Auto-Sign API**: The `useInterwovenKit` hook returns an `autoSign` object (not individual functions). 
+10. **Auto-Sign API**: The `useInterwovenKit` hook returns an `autoSign` object (not individual functions).
     - Status: `autoSign.isEnabledByChain[chainId]`
     - Enable: `await autoSign.enable(chainId)`
     - Disable: `await autoSign.disable(chainId)`
@@ -154,8 +154,8 @@ const customChain = {
     "json-rpc": [{ address: "http://localhost:8545" }] // REQUIRED for EVM appchains
   },
   fees: {
-    fee_tokens: [{ 
-      denom: "GAS", 
+    fee_tokens: [{
+      denom: "GAS",
       fixed_min_gas_price: 0,
       low_gas_price: 0,
       average_gas_price: 0,
@@ -188,9 +188,9 @@ const customChain = {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <WagmiProvider config={wagmiConfig}>
     <QueryClientProvider client={queryClient}>
-      <InterwovenKitProvider 
-        {...TESTNET} 
-        defaultChainId="my-appchain-1" 
+      <InterwovenKitProvider
+        {...TESTNET}
+        defaultChainId="my-appchain-1"
         customChain={customChain}
       >
         <App />
@@ -396,20 +396,20 @@ export function useBankActions(contractAddress: string) {
     });
 
     const messages = [{
-      typeUrl: "/minievm.evm.v1.MsgCall", 
+      typeUrl: "/minievm.evm.v1.MsgCall",
       value: {
         sender: initiaAddress, // bech32
         contractAddr: contractAddress, // hex (0x...)
-        input: data.startsWith("0x") ? data : `0x${data}`, 
+        input: data.startsWith("0x") ? data : `0x${data}`,
         value: amount, // Amount in base units (string)
         accessList: [], // MANDATORY to avoid Amino error
         authList: [],   // MANDATORY to avoid Amino error
       },
     }];
 
-    return requestTxBlock({ 
+    return requestTxBlock({
       chainId: "your-appchain-id", // Strongly recommended for appchains
-      msgs: messages 
+      msgs: messages
     });
   };
 
@@ -431,7 +431,7 @@ export function useBoardActions(contractAddress: string) {
     // MsgExecuteContract expects 'msg' as bytes (Uint8Array)
     const msg = new TextEncoder().encode(JSON.stringify({ post_message: { message } }));
 
-    return requestTxSync({ 
+    return requestTxSync({
       chainId: "social-1",
       messages: [
         {
@@ -466,7 +466,7 @@ export function BridgeButton() {
   const handleBridge = () => {
     if (!address) return;
     openBridge({
-      srcChainId: "initiation-2", 
+      srcChainId: "initiation-2",
       srcDenom: "uinit"
     });
   };
@@ -516,7 +516,7 @@ const fetchMoveState = async (address) => {
   // 2. Remove '0x' prefix and pad to 64 chars (32 bytes)
   // 3. Convert to Buffer and then Base64 string
   const b64Addr = Buffer.from(
-    AccAddress.toHex(address).replace('0x', '').padStart(64, '0'), 
+    AccAddress.toHex(address).replace('0x', '').padStart(64, '0'),
     'hex'
   ).toString('base64');
 
@@ -527,7 +527,7 @@ const fetchMoveState = async (address) => {
     [], // Type arguments
     [b64Addr] // Encoded arguments
   );
-  
+
   return JSON.parse(res.data);
 };
 ```
@@ -563,7 +563,7 @@ export function getHexAddress(address: string) {
 ## Gotchas
 
 - **EVM: Incorrect typeUrl**: For EVM contract calls via `requestTxBlock`, the `typeUrl` usually follows the pattern `/minievm.evm.v1.MsgCall` or `/initia.evm.v1.MsgCall`.
-  - **Fix**: Check your appchain's module name (often `minievm` on rollups) or use `scripts/verify-appchain.sh` to see the module registry.
+  - **Fix**: Check your appchain's module name (often `minievm` on rollups) or use `../scripts/verify-appchain.sh` to see the module registry.
 
 - **EVM: MsgCall Value Type**: The `value` field in `MsgCall` (for sending native tokens) MUST be a string representing the amount in base units (wei).
   - **Fix**: Use `parseEther(amount).toString()` to ensure it's a string.
