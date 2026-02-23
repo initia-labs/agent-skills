@@ -49,30 +49,36 @@ other_count="$(printf "%s\n" "$frontmatter" | rg -vc '^(name|description):|^[[:s
 [[ "$other_count" -eq 0 ]] || fail "frontmatter must only contain name/description fields"
 ok "frontmatter schema valid"
 
-ref_docs="$(
-  {
-    rg --no-filename -o '`[A-Za-z0-9._/-]+\.md`' skill/*.md || true
-    rg --no-filename -o '\([A-Za-z0-9._/-]+\.md(#[A-Za-z0-9._/-]+)?\)' skill/*.md || true
-  } | tr -d '`()' | sed 's/#.*$//' | sort -u
-)"
-if [[ -n "$ref_docs" ]]; then
-  while IFS= read -r ref; do
-    [[ -f "skill/$ref" ]] || fail "missing referenced doc: skill/$ref"
-  done <<< "$ref_docs"
-fi
+# Validate all internal documentation and script references
+find skill -name "*.md" | while read -r doc_file; do
+  doc_dir="$(dirname "$doc_file")"
+  
+  # Extract backtick references `path/to/file`
+  # Extract markdown links [label](path/to/file)
+  # We look for .md, .sh, and .py files
+  refs="$(
+    {
+      rg --no-filename -o '`[A-Za-z0-9._/-]+\.(md|sh|py)`' "$doc_file" || true
+      rg --no-filename -o '\]\([A-Za-z0-9._/-]+\.(md|sh|py)(#[A-Za-z0-9._/-]+)?\)' "$doc_file" || true
+    } | sed -E 's/^`|`$//g' | sed -E 's/^\]\(|\)$//g' | sed 's/#.*$//' | sort -u
+  )"
 
-ref_scripts="$(
-  {
-    rg --no-filename -o '`scripts/[A-Za-z0-9._/-]+\.(sh|py)`' skill/*.md || true
-    rg --no-filename -o '\(scripts/[A-Za-z0-9._/-]+\.(sh|py)(#[A-Za-z0-9._/-]+)?\)' skill/*.md || true
-  } | tr -d '`()' | sed 's/#.*$//' | sort -u
-)"
-if [[ -n "$ref_scripts" ]]; then
-  while IFS= read -r ref; do
-    [[ -f "skill/$ref" ]] || fail "missing referenced script: skill/$ref"
-  done <<< "$ref_scripts"
-fi
-ok "skill doc references resolve (backticks + markdown links)"
+  if [[ -n "$refs" ]]; then
+    while IFS= read -r ref; do
+      # Skip external links
+      [[ "$ref" =~ ^http ]] && continue
+      
+      # Resolve relative to the document's directory
+      target_path="$doc_dir/$ref"
+      
+      # Check if exists (using -f to ensure it's a file)
+      if [[ ! -f "$target_path" ]]; then
+        fail "broken reference in $doc_file: '$ref' (resolved to $target_path)"
+      fi
+    done <<< "$refs"
+  fi
+done
+ok "all internal doc and script references resolve"
 
 if [[ "${SKIP_SKILLS_CLI_CHECK:-0}" == "1" ]]; then
   warn "SKIP_SKILLS_CLI_CHECK=1 set; skipping skills.sh discovery check"

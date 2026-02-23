@@ -83,13 +83,13 @@ Then ask a context-specific confirmation:
 2. **Environment Check**: Verify tools (`cargo`, `forge`, `minitiad`) are in PATH. Use absolute paths if needed.
 3. **Workspace Awareness**: Check for existing `Move.toml` or `package.json` before scaffolding. Use provided scripts for non-interactive scaffolding.
 4. **Scaffolding Cleanup**: Delete placeholder modules/contracts after scaffolding.
-5. **Appchain Health**: If RPC is down, attempt `weave rollup start -d` and verify with `../scripts/verify-appchain.sh`.
+5. **Appchain Health**: If RPC is down, attempt `weave rollup start -d` and verify with `scripts/verify-appchain.sh`.
 6. **Move 2.1 Syntax**: Place doc comments (`///`) **AFTER** attributes like `#[view]`.
 7. **Wasm Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
 8. **Visual Polish**: Prioritize sticky glassmorphism headers, centered app-card layouts, and clear visual hierarchy.
 9. **UX Excellence**: Feed ordering (newest first), input accessibility (above feed), and interactive feedback (hover/focus).
 10. **Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
-11. **Validation**: Run `../scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
+11. **Validation**: Run `scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
 
 ## Progressive Disclosure (Read When Needed)
 
@@ -110,10 +110,10 @@ Then ask a context-specific confirmation:
 
 ## Script Usage
 
-- Scaffolding: `../scripts/scaffold-contract.sh`, `../scripts/scaffold-frontend.sh`
-- Health: `../scripts/verify-appchain.sh`
-- Utils: `../scripts/convert-address.py`, `../scripts/to_hex.py`, `../scripts/generate-system-keys.py`
-- Setup: `../scripts/install-tools.sh`, `../scripts/fund-user.sh`
+- Scaffolding: `scripts/scaffold-contract.sh`, `scripts/scaffold-frontend.sh`
+- Health: `scripts/verify-appchain.sh`
+- Utils: `scripts/convert-address.py`, `scripts/to_hex.py`, `scripts/generate-system-keys.py`
+- Setup: `scripts/install-tools.sh`, `scripts/fund-user.sh`
 
 ## Expected Deliverables
 

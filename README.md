@@ -15,7 +15,7 @@ npx -y skills@1.3.7 add https://github.com/initia-labs/agent-skills
 
 ```bash
 git clone https://github.com/initia-labs/agent-skills
-cd hackathon-skills
+cd agent-skills
 ./install.sh
 ```
 

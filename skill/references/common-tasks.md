@@ -31,7 +31,7 @@ When a user provides an address and asks for funding, you should ideally fund th
 - **L2 Funding (Appchain):** Essential for gas on their rollup. (`../scripts/fund-user.sh --address <init1...> --layer l2 --chain-id <l2_chain_id>`)
 - **L1 Funding (Initia):** Needed for bridging and L1 features. (`../scripts/fund-user.sh --address <init1...> --layer l1`)
 
-**Note:** `fund-user.sh` may fail to auto-detect the L2 `chain-id`. Always use `verify-appchain.sh` first to retrieve it and provide it explicitly if needed.
+**Note:** `../scripts/fund-user.sh` may fail to auto-detect the L2 `chain-id`. Always use `../scripts/verify-appchain.sh` first to retrieve it and provide it explicitly if needed.
 
 ### Account Existence (CRITICAL)
 Transactions via `requestTxSync` or `requestTxBlock` will fail with "Account does not exist" if the sender has no balance. ALWAYS ensure a user is funded on L2 before they attempt their first transaction.
@@ -79,4 +79,4 @@ If a user asks for "X tokens" and the denom is a micro-unit (e.g., `umin`), assu
 | EVM | 18 | `GAS` / `wei` | $10^{18}$ |
 
 ### Avoid Script Defaults
-Do not rely on `fund-user.sh` to handle precision or denoms automatically. Explicitly calculate the base unit amount and specify the correct denom in your commands.
+Do not rely on `../scripts/fund-user.sh` to handle precision or denoms automatically. Explicitly calculate the base unit amount and specify the correct denom in your commands.
