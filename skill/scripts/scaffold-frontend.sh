@@ -117,9 +117,9 @@ const wagmiConfig = createConfig({
 // Custom Appchain Configuration
 // This is REQUIRED for local rollups to be recognized by InterwovenKit.
 const customChain = {
-  chain_id: 'your-appchain-id', // Update to match your rollup
-  chain_name: 'myapp',
-  pretty_name: 'My Appchain',
+  chain_id: '<INSERT_APPCHAIN_ID_HERE>', // Update to match your rollup
+  chain_name: '<INSERT_APP_NAME_HERE>',
+  pretty_name: '<INSERT_PRETTY_NAME_HERE>',
   network_type: 'testnet',
   bech32_prefix: 'init',
   logo_URIs: {
@@ -130,17 +130,34 @@ const customChain = {
     rpc: [{ address: 'http://localhost:26657' }],
     rest: [{ address: 'http://localhost:1317' }],
     indexer: [{ address: 'http://localhost:8080' }],
-    // "json-rpc": [{ address: 'http://localhost:8545' }], // REQUIRED for EVM rollups
+    "json-rpc": [{ address: 'http://localhost:8545' }], // REQUIRED for EVM rollups
   },
   fees: {
-    fee_tokens: [{ denom: 'umin', fixed_min_gas_price: 0 }],
+    fee_tokens: [{ 
+      denom: '<INSERT_NATIVE_DENOM_HERE>', 
+      fixed_min_gas_price: 0,
+      low_gas_price: 0,
+      average_gas_price: 0,
+      high_gas_price: 0
+    }],
+  },
+  staking: {
+    staking_tokens: [{ denom: '<INSERT_NATIVE_DENOM_HERE>' }]
   },
   metadata: {
     is_l1: false,
     minitia: {
-      type: 'minimove', // Use 'minimove', 'miniwasm', or 'minievm'
+      type: '<INSERT_MINITIA_TYPE_HERE>', // Use 'minimove', 'miniwasm', or 'minievm'
     },
   },
+  native_assets: [
+    {
+      denom: '<INSERT_NATIVE_DENOM_HERE>',
+      name: 'Native Token',
+      symbol: '<INSERT_NATIVE_SYMBOL_HERE>',
+      decimals: 18
+    }
+  ]
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -149,8 +166,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <QueryClientProvider client={queryClient}>
         <InterwovenKitProvider
           {...TESTNET}
-          defaultChainId="your-appchain-id" // Update to match your rollup
+          defaultChainId="initiation-2"
           customChain={customChain}
+          customChains={[customChain]}
         >
           <App />
         </InterwovenKitProvider>

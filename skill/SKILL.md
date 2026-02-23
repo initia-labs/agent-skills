@@ -53,27 +53,37 @@ Then ask a context-specific confirmation:
 - Delete binary files used for deployment before finishing.
 
 ### InterwovenKit Local Appchains (CRITICAL)
-- When configuring a frontend for a local appchain, you MUST use the `customChain` (singular) property in `InterwovenKitProvider`.
-- **Address Prefix**: `customChain` MUST include a top-level `bech32_prefix` string (e.g., `bech32_prefix: "init"`). This is **mandatory for all appchain types** (minimove, miniwasm, minievm) to correctly derive session wallets for Auto-Sign.
+- When configuring a frontend for a local appchain, you MUST use BOTH the `customChain` AND `customChains: [customChain]` properties in `InterwovenKitProvider`.
+- **Bridge Support**: To ensure the bridge can resolve public chains (like `initiation-2`), ALWAYS spread the `{...TESTNET}` preset (imported from `@initia/interwovenkit-react`) into the `InterwovenKitProvider`: `<InterwovenKitProvider {...TESTNET} ... />`.
+- **Address Prefix**: `customChain` MUST include a top-level `bech32_prefix` string (e.g., `bech32_prefix: "init"`). This is **mandatory for all appchain types**.
+- **Metadata Completeness**: To avoid "Chain not found" errors, the `customChain` object MUST include `network_type: 'testnet'`, `staking`, `fees` (with `low/average/high_gas_price: 0`), and `native_assets` arrays.
+- **API Requirements**: The `apis` object MUST include `rpc`, `rest`, AND `indexer` (use a placeholder if needed) to satisfy the kit's discovery logic.
+- **Bridge Support (openBridge)**: When using `openBridge`, ONLY specify `srcChainId` and `srcDenom` (e.g., `initiation-2` and `uinit`). Avoid specifying a local `dstChainId` as it may cause resolution errors if the local chain is not yet indexed.
 - **Example `customChain` Structure**:
   ```javascript
   const customChain = {
-    chain_id: 'my-appchain-1',
-    chain_name: 'My Appchain',
-    bech32_prefix: 'init', // CRITICAL: Required for Auto-Sign on ALL VMs
+    chain_id: '<INSERT_APPCHAIN_ID_HERE>',
+    chain_name: '<INSERT_APP_NAME_HERE>',
+    network_type: 'testnet', // MANDATORY
+    bech32_prefix: 'init',
     apis: {
       rpc: [{ address: 'http://localhost:26657' }],
       rest: [{ address: 'http://localhost:1317' }],
-      indexer: [{ address: 'http://localhost:8080' }],
-      'json-rpc': [{ address: 'http://localhost:8545' }], // Required for minievm
+      indexer: [{ address: 'http://localhost:8080' }], // MANDATORY
+      'json-rpc': [{ address: 'http://localhost:8545' }],
     },
-    metadata: { is_l1: false },
-    fees: { fee_tokens: [{ denom: 'umin', ... }] },
+    fees: { fee_tokens: [{ denom: 'umin', fixed_min_gas_price: 0, low_gas_price: 0, average_gas_price: 0, high_gas_price: 0 }] },
+    staking: { staking_tokens: [{ denom: 'umin' }] },
+    native_assets: [{ denom: 'umin', name: 'Token', symbol: 'TKN', decimals: 6 }],
+    metadata: { is_l1: false, minitia: { type: 'minimove' } }
   }
   ```
-- `customChain.apis` MUST include `rpc`, `rest`, AND `indexer` (even if indexer is a placeholder).
-- For EVM appchains, `customChain.apis` MUST also include `json-rpc`.
-- `metadata` MUST include `is_l1: false`. `fees` MUST include `fee_tokens`.
+
+### Frontend Requirements (CRITICAL)
+- **Placeholder Sync**: Immediately after scaffolding a frontend, you MUST update all placeholders in `main.jsx` (like `<INSERT_APPCHAIN_ID_HERE>`, `<INSERT_NATIVE_DENOM_HERE>`, etc.) with the actual values discovered during the Research phase (e.g., `bank-1`, `GAS`, `minievm`).
+- **Hook Exports**: `useInterwovenKit` exports `initiaAddress`, `address`, `username`, `openConnect`, `openWallet`, `openBridge`, `requestTxBlock`, `requestTxSync`, and `autoSign`.
+- **Transaction Guards**: Before calling `requestTxBlock` or `requestTxSync`, you MUST verify that `initiaAddress` is defined.
+- **Sender Address (ALL VMs)**: In Initia, the `sender` field for all message types (`MsgCall`, `MsgExecute`, `MsgExecuteContract`) MUST be the Bech32 address. Use `initiaAddress` for this field to ensure compatibility across EVM, Move, and Wasm appchains. Using the hex `address` on an EVM chain for the `sender` field in a Cosmos-style message will cause an "empty address string" or "decoding bech32 failed" error.
 
 ### Security & Key Protection (STRICTLY ENFORCED)
 - You MUST NOT export raw private keys from the keyring.
@@ -84,7 +94,16 @@ Then ask a context-specific confirmation:
 
 ### Frontend Requirements (CRITICAL)
 - **Polyfills**: Define `Buffer` and `process` global polyfills at the TOP of `main.jsx`.
-- **Styles**: Inject styles using `injectStyles(InterwovenKitStyles)` and import `styles.css`.
+  ```javascript
+  import { Buffer } from "buffer";
+  window.Buffer = Buffer;
+  window.process = { env: {} };
+  ```
+- **Styles**: 
+  - Import the CSS: `import "@initia/interwovenkit-react/styles.css"`.
+  - Import the JS styles: `import InterwovenKitStyles from "@initia/interwovenkit-react/styles.js"`.
+  - Inject them: `injectStyles(InterwovenKitStyles)`.
+  - **Note**: `InterwovenKitStyles` is a DEFAULT export from the subpath, NOT a named export from the main package.
 - **Provider Order**: `WagmiProvider` -> `QueryClientProvider` -> `InterwovenKitProvider`.
 - **Wallet Modal**: Use `openConnect` (not `openModal`) to open the connection modal (v2.4.0+).
 - **Auto-Sign Implementation**: 
@@ -109,9 +128,29 @@ Then ask a context-specific confirmation:
     messages: [...] 
   })
   ```
-- **EVM Sender**: Use **bech32** address for `sender` in `MsgCall`, but **hex** for `contractAddr`.
-- **EVM Payload**: Use **camelCase** for fields (`contractAddr`, `accessList`, `authList`) and include empty arrays for lists.
+- **EVM Sender (MsgCall)**: Use **bech32** address for `sender` in `MsgCall`, but **hex** for `contractAddr`. 
+  - **Normalization**: ALWAYS lowercase the bech32 sender address to avoid "decoding bech32 failed" errors.
+- **EVM Payload (InterwovenKit)**: Use plain objects with `typeUrl: "/minievm.evm.v1.MsgCall"`. The actual message fields MUST be wrapped inside a `value` key.
+  - **Incorrect**: `{ typeUrl: "...", sender: "...", contractAddr: "..." }`
+  - **Correct**: `{ typeUrl: "...", value: { sender: "...", contractAddr: "...", ... } }`
+- **EVM Field Naming**: Use **camelCase** for fields (`contractAddr`, `accessList`, `authList`) and include empty arrays for lists.
 - **Move MsgExecute**: Use **camelCase** for fields; `moduleAddress` MUST be **bech32**.
+
+### Token Precision & Funding (EVM SPECIFIC)
+- **EVM Precision**: Assume standard EVM precision ($10^{18}$ base units) for all native tokens on EVM appchains (e.g., `GAS`).
+- **Funding Requests**: When a user asks for "N tokens" on an EVM chain:
+  - **Frontend**: Multiply by $10^{18}$ (e.g., `parseUnits(amount, 18)`).
+  - **CLI**: You MUST manually scale the value. For "100 tokens", use `100000000000000000000GAS` (100 + 18 zeros) in the `bank send` command.
+- **Human-Readable UI**: ALWAYS use `formatUnits(balance, 18)` from `viem` to display EVM balances. NEVER display raw base units in the UI.
+
+### EVM Queries & Transactions (CRITICAL)
+- **State Queries**: Prefer standard JSON-RPC `eth_call` over `RESTClient` for EVM state queries to avoid property-undefined errors.
+- **Address Conversion**: When querying EVM state (e.g., `eth_call`), ALWAYS convert the bech32 address to hex using `AccAddress.toHex(addr)` and ensure the hex address is lowercased.
+- **Calldata Encoding**: 
+  - **Frontend**: Prefer `viem` (e.g., `encodeFunctionData`) for generating contract `input` hex. 
+  - **CLI**: ALWAYS use `cast calldata` (e.g., `$(cast calldata "func(type)" arg)`) for generating contract `input` hex. Manual encoding (e.g., `printf`) is brittle and MUST be avoided.
+  - **Manual Padding**: If manual encoding is unavoidable, ensure `BigInt` values are converted to hex and padded to exactly 64 characters for `uint256` arguments.
+
 ### Move REST Queries (CRITICAL)
 - When querying Move contract state using the `RESTClient` (e.g., `rest.move.view`), the module address MUST be in **bech32** format.
 - **Address Arguments**: Address arguments in `args` MUST be converted to hex, stripped of `0x`, **padded to 64 chars** (32 bytes), and then Base64-encoded.
@@ -130,14 +169,18 @@ Then ask a context-specific confirmation:
 1. **Classify Layer**: Contract, Frontend, Appchain Ops, or Integration.
 2. **Environment Check**: Verify tools (`cargo`, `forge`, `minitiad`) are in PATH. Use absolute paths if needed.
 3. **Workspace Awareness**: Check for existing `Move.toml` or `package.json` before scaffolding. Use provided scripts for non-interactive scaffolding.
-4. **Scaffolding Cleanup**: Delete placeholder modules/contracts after scaffolding.
-5. **Appchain Health**: If RPC is down, attempt `weave rollup start -d` and verify with `scripts/verify-appchain.sh`.
-6. **Move 2.1 Syntax**: Place doc comments (`///`) **AFTER** attributes like `#[view]`.
-7. **Wasm Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
-8. **Visual Polish**: Prioritize sticky glassmorphism headers, centered app-card layouts, and clear visual hierarchy.
-9. **UX Excellence**: Feed ordering (newest first), input accessibility (above feed), and interactive feedback (hover/focus).
-10. **Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
-11. **Validation**: Run `scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
+4. **Pre-Deployment Checklist (CLI)**: Before deploying contracts or sending tokens via CLI, verify the actual environment:
+   - **Chain ID**: `curl -s http://localhost:26657/status | jq -r '.result.node_info.network'`
+   - **Native Denom**: `minitiad q bank total --node http://localhost:26657`
+   - **Balance**: Ensure the `from` account has enough of the *actual* native denom.
+5. **Scaffolding Cleanup**: Delete placeholder modules/contracts after scaffolding.
+6. **Appchain Health**: If RPC is down, attempt `weave rollup start -d` and verify with `scripts/verify-appchain.sh`.
+7. **Move 2.1 Syntax**: Place doc comments (`///`) **AFTER** attributes like `#[view]`.
+8. **Wasm Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
+9. **Visual Polish**: Prioritize sticky glassmorphism headers, centered app-card layouts, and clear visual hierarchy.
+10. **UX Excellence**: Feed ordering (newest first), input accessibility (above feed), and interactive feedback (hover/focus).
+11. **Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
+12. **Validation**: Run `scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
 
 ## Progressive Disclosure (Read When Needed)
 

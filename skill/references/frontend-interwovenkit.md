@@ -98,7 +98,7 @@ Avoid hard-coded version matrices in this skill.
 2. Configure Vite polyfills if applicable.
 3. Set up `window.Buffer` and `window.process` in `main.jsx` before other imports.
 4. Set up providers in order: `WagmiProvider` -> `QueryClientProvider` -> `InterwovenKitProvider`.
-5. For custom appchains, provide a complete `customChain` object including `rpc`, `rest`, and a placeholder `indexer`.
+5. For custom appchains, provide a complete `customChain` object including `rpc`, `rest`, and a placeholder `indexer`. Pass BOTH `customChain={customChain}` AND `customChains={[customChain]}` to the provider.
 6. Use `RESTClient` (from `@initia/initia.js`) for querying resources or view functions. **Note: `LCDClient` is deprecated.**
 7. Prefer `rest.move.resource` for state queries as it is more robust than view functions.
 8. **IMPORTANT (v2.4.0)**: Use `openConnect` (not `openModal`) to open the wallet connection modal. Extract it from the `useInterwovenKit` hook.
@@ -194,6 +194,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         {...TESTNET}
         defaultChainId="my-appchain-1"
         customChain={customChain}
+        customChains={[customChain]}
       >
         <App />
       </InterwovenKitProvider>
@@ -436,7 +437,7 @@ export function useBankActions(contractAddress: string) {
     }];
 
     return requestTxBlock({
-      chainId: "your-appchain-id", // Strongly recommended for appchains
+      chainId: "<INSERT_APPCHAIN_ID_HERE>", // Strongly recommended for appchains
       msgs: messages
     });
   };
@@ -481,18 +482,18 @@ export function useBoardActions(contractAddress: string) {
 
 ## Liquidity Management (Bridge)
 
-InterwovenKit provides specialized UI modals for moving funds between chains. Use `openBridge` for a simplified entry point that handles both directions.
+InterwovenKit provides specialized UI modals for moving funds between chains. Use `openBridge` for a simplified entry point.
 
-**Local Dev Support**: In local environments, the modal may be blank if using local `chainId`. Use a public testnet ID (e.g., `initiation-2`) for demos.
+**Local Dev Support**: In local environments, the modal may be blank if using local `chainId`. Use a public testnet ID (e.g., `initiation-2`) as the source to move funds *onto* the appchain.
 
 ```tsx
 import { useInterwovenKit } from "@initia/interwovenkit-react";
 
 export function BridgeButton() {
-  const { address, openBridge } = useInterwovenKit();
+  const { initiaAddress, openBridge } = useInterwovenKit();
 
   const handleBridge = () => {
-    if (!address) return;
+    if (!initiaAddress) return;
     openBridge({
       srcChainId: "initiation-2",
       srcDenom: "uinit"
@@ -612,7 +613,8 @@ export function getHexAddress(address: string) {
   - **Fix**: Use `new TextEncoder().encode(JSON.stringify(msg))` for the `msg` field.
 
 - **Buffer is not defined**: Initia.js uses Node.js globals. Use `vite-plugin-node-polyfills` or manual global assignment.
-- **Chain not found**: Ensure `customChain` is passed to `InterwovenKitProvider` (singular prop for a single chain) and `defaultChainId` matches. Ensure `rpc`, `rest`, AND `indexer` are present in `customChain.apis`.
+- **switchChain is not a function**: `switchChain` is NOT exported from `useInterwovenKit`. Change chain context by setting the `defaultChainId` in `InterwovenKitProvider` or by using `openBridge` to move assets between specific chains.
+- **Chain not found**: Ensure `customChain` AND `customChains: [customChain]` are passed to `InterwovenKitProvider`. Ensure `rpc`, `rest`, AND `indexer` are present in `customChain.apis`.
 - **URL not found**: Ensure `rpc`, `rest`, AND `indexer` are present in `customChain.apis`.
 - **LCDClient or useRest is not an export**: These hooks are not currently exported in `@initia/interwovenkit-react` v2.4.0. Use `RESTClient` from `@initia/initia.js` instead.
 - **View function 400/500 errors**: Ensure arguments are correctly typed strings (e.g., `address:init1...`) and parameters match Move signature exactly. Prefer `resource()` queries for simple state.
