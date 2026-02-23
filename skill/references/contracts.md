@@ -527,7 +527,8 @@ For any deploy flow, return:
   - **Strategy**: Always use `../scripts/scaffold-contract.sh evm <dir>` which now automatically sets this up.
 
 - **Move: Address Mismatch on Deploy**: If you encounter `MODULE_ADDRESS_DOES_NOT_MATCH_SENDER` during `minitiad move deploy`, it means the address defined in your bytecode doesn't match the sender.
-  - **Fix**: Use `--named-addresses <package>=0x<HEX_ADDR> --build --force` in your `deploy` command to recompile with the correct address on the fly.
+  - **Fix**: Convert your bech32 sender address to hex using `../scripts/to_hex.py` and update the `[addresses]` section in your `Move.toml` to match. Then, clean the stale artifacts (`rm -rf build/`), **rebuild the package** (`minitiad move build`), and finally redeploy.
+  - **Alternative**: Use `--named-addresses <package>=0x<HEX_ADDR> --build --force` in your `deploy` command to recompile with the correct address on the fly.
 
 - **Move: Backward Incompatible Update**: If you see `BACKWARD_INCOMPATIBLE_MODULE_UPDATE`, you are trying to publish a module to an account that already has it, but your new code removes or changes existing public functions/structs.
   - **Fix**: The preferred fix is to **rename the module** (e.g., from `items` to `items_v2`) in the source code and `Move.toml`. This allows you to keep using the same account (like `gas-station`) without compatibility issues. Only use a fresh account if renaming is not an option for the project.

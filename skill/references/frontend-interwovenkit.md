@@ -108,6 +108,8 @@ Avoid hard-coded version matrices in this skill.
     - Enable: `await autoSign.enable(chainId)`
     - Disable: `await autoSign.disable(chainId)`
     - **Setup Requirement**: `enableAutoSign={true}` must be passed to the `InterwovenKitProvider` in `main.jsx`.
+    - **Session Wallet Fix**: You MUST include `bech32_prefix` (e.g., `bech32_prefix: "init"`) as a top-level field in your `customChain` object to avoid derivation `TypeError`.
+    - **Headless Flow**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include an explicit `feeDenom` (e.g., `feeDenom: "umin"`) in the transaction request.
 11. **Chain Stability (CRITICAL)**: To avoid "Chain not found" or "URL not found" errors, the `customChain.apis` object MUST include `rpc`, `rest`, AND `indexer` (even if indexer is a placeholder).
 
 ## Provider Setup (Current Baseline)
@@ -271,6 +273,32 @@ export function WalletPill() {
   background-color: #10b981;
   border-radius: 50%;
   margin-right: 10px;
+}
+```
+
+### Auto-Sign Toggle Pattern
+
+For games or high-frequency apps, providing an "Auto-Sign" toggle is essential for a "headless" UX. This allows users to delegate signing to a session wallet for the current chain.
+
+```tsx
+export function AutoSignToggle({ chainId }) {
+  const { autoSign } = useInterwovenKit();
+  const isEnabled = autoSign?.isEnabledByChain[chainId];
+
+  const handleToggle = async () => {
+    if (isEnabled) {
+      await autoSign.disable(chainId);
+    } else {
+      await autoSign.enable(chainId);
+    }
+  };
+
+  return (
+    <button onClick={handleToggle} className={`auto-sign-btn ${isEnabled ? 'active' : ''}`}>
+      <span className="dot"></span>
+      {isEnabled ? 'AUTO-SIGN ON' : 'AUTO-SIGN OFF'}
+    </button>
+  );
 }
 ```
 
@@ -512,23 +540,26 @@ When calling Move view functions using `rest.move.view`, address arguments MUST 
 import { AccAddress } from "@initia/initia.js";
 
 const fetchMoveState = async (address) => {
-  // 1. Convert bech32 to Hex
-  // 2. Remove '0x' prefix and pad to 64 chars (32 bytes)
-  // 3. Convert to Buffer and then Base64 string
-  const b64Addr = Buffer.from(
-    AccAddress.toHex(address).replace('0x', '').padStart(64, '0'),
-    'hex'
-  ).toString('base64');
+  try {
+    // 1. Convert bech32 to Hex
+    // 2. Remove '0x' prefix and pad to EXACTLY 64 chars (32 bytes)
+    // 3. Convert to Buffer and then Base64 string
+    const hexAddr = AccAddress.toHex(address).replace('0x', '').padStart(64, '0');
+    const b64Addr = Buffer.from(hexAddr, 'hex').toString('base64');
 
-  const res = await rest.move.view(
-    MODULE_ADDR,
-    MODULE_NAME,
-    'your_view_function',
-    [], // Type arguments
-    [b64Addr] // Encoded arguments
-  );
+    const res = await rest.move.view(
+      MODULE_ADDR,
+      MODULE_NAME,
+      'your_view_function',
+      [], // Type arguments
+      [b64Addr] // Encoded arguments
+    );
 
-  return JSON.parse(res.data);
+    return JSON.parse(res.data);
+  } catch (err) {
+    console.error("View function failed:", err);
+    return null; // or default state
+  }
 };
 ```
 
@@ -585,6 +616,9 @@ export function getHexAddress(address: string) {
 - **URL not found**: Ensure `rpc`, `rest`, AND `indexer` are present in `customChain.apis`.
 - **LCDClient or useRest is not an export**: These hooks are not currently exported in `@initia/interwovenkit-react` v2.4.0. Use `RESTClient` from `@initia/initia.js` instead.
 - **View function 400/500 errors**: Ensure arguments are correctly typed strings (e.g., `address:init1...`) and parameters match Move signature exactly. Prefer `resource()` queries for simple state.
+  - **Move view 400 Fix**: Address arguments MUST be hex strings padded to exactly **64 characters** (32 bytes) before Base64 encoding.
+  - **Move view 500 Fix**: If a view function fails with 500 because a resource doesn't exist yet, ALWAYS wrap the call in a `.catch()` to return default values (e.g., `["0", "0"]`).
+  - **Move state update delay**: After a transaction, there is a short delay before the REST API reflects the new state. ALWAYS include a 2-second delay (`setTimeout`) before refreshing the inventory or state.
 - **Unstyled Modal**: Ensure `styles.css` is imported AND `injectStyles(InterwovenKitStyles)` is called in `main.jsx`.
 
 - **Error: must contain at least one message**: This often occurs if `requestTxBlock` is called without a `chainId` or with a `chainId` that the node doesn't recognize (e.g., trying to send an L2-only message to L1).

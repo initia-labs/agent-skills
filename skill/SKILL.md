@@ -54,12 +54,30 @@ Then ask a context-specific confirmation:
 
 ### InterwovenKit Local Appchains (CRITICAL)
 - When configuring a frontend for a local appchain, you MUST use the `customChain` (singular) property in `InterwovenKitProvider`.
-- `customChain.apis` MUST include `rpc`, `rest`, AND `indexer` (even as a placeholder).
+- **Address Prefix**: `customChain` MUST include a top-level `bech32_prefix` string (e.g., `bech32_prefix: "init"`). This is **mandatory for all appchain types** (minimove, miniwasm, minievm) to correctly derive session wallets for Auto-Sign.
+- **Example `customChain` Structure**:
+  ```javascript
+  const customChain = {
+    chain_id: 'my-appchain-1',
+    chain_name: 'My Appchain',
+    bech32_prefix: 'init', // CRITICAL: Required for Auto-Sign on ALL VMs
+    apis: {
+      rpc: [{ address: 'http://localhost:26657' }],
+      rest: [{ address: 'http://localhost:1317' }],
+      indexer: [{ address: 'http://localhost:8080' }],
+      'json-rpc': [{ address: 'http://localhost:8545' }], // Required for minievm
+    },
+    metadata: { is_l1: false },
+    fees: { fee_tokens: [{ denom: 'umin', ... }] },
+  }
+  ```
+- `customChain.apis` MUST include `rpc`, `rest`, AND `indexer` (even if indexer is a placeholder).
 - For EVM appchains, `customChain.apis` MUST also include `json-rpc`.
 - `metadata` MUST include `is_l1: false`. `fees` MUST include `fee_tokens`.
 
 ### Security & Key Protection (STRICTLY ENFORCED)
 - You MUST NOT export raw private keys from the keyring.
+- **Move Development**: `minitiad move build` requires **Hex** addresses (`0x...`) for named addresses.
 - For EVM deployment, use `minitiad tx evm create` with `--from`.
 - Extract bytecode from Foundry artifacts using `jq`; ensure NO `0x` prefix and NO trailing newlines in `.bin` files.
 - If a tool requires a private key, find an alternative workflow using Initia CLI or `InterwovenKit`.
@@ -69,13 +87,43 @@ Then ask a context-specific confirmation:
 - **Styles**: Inject styles using `injectStyles(InterwovenKitStyles)` and import `styles.css`.
 - **Provider Order**: `WagmiProvider` -> `QueryClientProvider` -> `InterwovenKitProvider`.
 - **Wallet Modal**: Use `openConnect` (not `openModal`) to open the connection modal (v2.4.0+).
+- **Auto-Sign Implementation**: 
+  - **Provider**: Pass `enableAutoSign={true}` to `InterwovenKitProvider`.
+  - **Hook**: Destructure the `autoSign` *object* (not functions) from `useInterwovenKit`.
+  - **Safety**: Use optional chaining (`autoSign?.`) and check status via `autoSign?.isEnabledByChain[chainId]`.
+  - **Actions**: `await autoSign?.enable(chainId)` and `await autoSign?.disable(chainId)` are asynchronous.
+  - **Permissions (CRITICAL)**: To ensure the session key can sign specific message types, ALWAYS include explicit permissions in `autoSign.enable`:
+    ```javascript
+    await autoSign.enable(chainId, { permissions: ["/initia.move.v1.MsgExecute"] })
+    ```
+  - **Error Handling**: If `autoSign.disable` fails with "authorization not found", handle it by calling `autoSign.enable` with the required permissions to reset the session.
 - **REST Client**: Instantiate `RESTClient` from `@initia/initia.js` manually; it is NOT exported from the hook.
 
 ### Transaction Message Flow (CRITICAL)
 - **Wasm**: ALWAYS include `chainId`. Prefer `requestTxSync`.
+- **Auto-Sign (Headless)**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include an explicit `feeDenom` (e.g., `feeDenom: "umin"`) AND the `autoSign: true` flag in the request:
+  ```javascript
+  await requestTxSync({ 
+    chainId, 
+    autoSign: true, // CRITICAL: Required for silent signing flow
+    messages: [...] 
+  })
+  ```
 - **EVM Sender**: Use **bech32** address for `sender` in `MsgCall`, but **hex** for `contractAddr`.
 - **EVM Payload**: Use **camelCase** for fields (`contractAddr`, `accessList`, `authList`) and include empty arrays for lists.
 - **Move MsgExecute**: Use **camelCase** for fields; `moduleAddress` MUST be **bech32**.
+### Move REST Queries (CRITICAL)
+- When querying Move contract state using the `RESTClient` (e.g., `rest.move.view`), the module address MUST be in **bech32** format.
+- **Address Arguments**: Address arguments in `args` MUST be converted to hex, stripped of `0x`, **padded to 64 chars** (32 bytes), and then Base64-encoded.
+- **Example Implementation**:
+  ```javascript
+  const b64Addr = Buffer.from(
+    AccAddress.toHex(addr).replace('0x', '').padStart(64, '0'), 
+    'hex'
+  ).toString('base64');
+  const res = await rest.move.view(mod_bech32, mod_name, func_name, [], [b64Addr]);
+  ```
+- **Response Parsing**: The response from `rest.move.view` is a `ViewResponse` object; you MUST parse `JSON.parse(res.data)` to access the actual values.
 
 ## Operating Procedure (How To Execute Tasks)
 
