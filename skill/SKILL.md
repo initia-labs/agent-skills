@@ -54,6 +54,16 @@ Then ask a context-specific confirmation:
 
 ### InterwovenKit Local Appchains (CRITICAL)
 - When configuring a frontend for a local appchain, you MUST use BOTH the `customChain` AND `customChains: [customChain]` properties in `InterwovenKitProvider`.
+- **Example Usage**:
+  ```jsx
+  <InterwovenKitProvider 
+    {...TESTNET} 
+    customChain={customChain} 
+    customChains={[customChain]}
+  >
+    <App />
+  </InterwovenKitProvider>
+  ```
 - **Bridge Support**: To ensure the bridge can resolve public chains (like `initiation-2`), ALWAYS spread the `{...TESTNET}` preset (imported from `@initia/interwovenkit-react`) into the `InterwovenKitProvider`: `<InterwovenKitProvider {...TESTNET} ... />`.
 - **Address Prefix**: `customChain` MUST include a top-level `bech32_prefix` string (e.g., `bech32_prefix: "init"`). This is **mandatory for all appchain types**.
 - **Metadata Completeness**: To avoid "Chain not found" errors, the `customChain` object MUST include `network_type: 'testnet'`, `staking`, `fees` (with `low/average/high_gas_price: 0`), and `native_assets` arrays.
@@ -87,13 +97,14 @@ Then ask a context-specific confirmation:
 
 ### Security & Key Protection (STRICTLY ENFORCED)
 - You MUST NOT export raw private keys from the keyring.
-- **Move Development**: `minitiad move build` requires **Hex** addresses (`0x...`) for named addresses.
+- **Move Development (Building for Publish)**: Before publishing, you MUST rebuild the module using the intended deployer's **Hex** address: `minitiad move build --named-addresses <name>=0x<hex_addr>`.
+- **Move Dependency Resolution**: If `InitiaStdlib` fails to resolve, use: `{ git = "https://github.com/initia-labs/movevm.git", subdir = "precompile/modules/initia_stdlib", rev = "main" }`.
 - For EVM deployment, use `minitiad tx evm create` with `--from`.
 - Extract bytecode from Foundry artifacts using `jq`; ensure NO `0x` prefix and NO trailing newlines in `.bin` files.
 - If a tool requires a private key, find an alternative workflow using Initia CLI or `InterwovenKit`.
 
 ### Frontend Requirements (CRITICAL)
-- **Polyfills**: Define `Buffer` and `process` global polyfills at the TOP of `main.jsx`.
+- **Polyfills**: Use `vite-plugin-node-polyfills` in `vite.config.js` with `globals: { Buffer: true, process: true }`. If using manual polyfills, define `Buffer` and `process` global polyfills at the TOP of `main.jsx`.
   ```javascript
   import { Buffer } from "buffer";
   window.Buffer = Buffer;
@@ -101,25 +112,32 @@ Then ask a context-specific confirmation:
   ```
 - **Styles**: 
   - Import the CSS: `import "@initia/interwovenkit-react/styles.css"`.
-  - Import the JS styles: `import InterwovenKitStyles from "@initia/interwovenkit-react/styles.js"`.
+  - Import the style data: `import InterwovenKitStyles from "@initia/interwovenkit-react/styles.js"`.
+  - Import the injector function: `import { injectStyles } from "@initia/interwovenkit-react"`.
   - Inject them: `injectStyles(InterwovenKitStyles)`.
-  - **Note**: `InterwovenKitStyles` is a DEFAULT export from the subpath, NOT a named export from the main package.
+  - **Note**: `InterwovenKitStyles` is a DEFAULT export from the styles subpath, while `injectStyles` is a NAMED export from the main package.
 - **Provider Order**: `WagmiProvider` -> `QueryClientProvider` -> `InterwovenKitProvider`.
-- **Wallet Modal**: Use `openConnect` (not `openModal`) to open the connection modal (v2.4.0+).
-- **Auto-Sign Implementation**: 
-  - **Provider**: Pass `enableAutoSign={true}` to `InterwovenKitProvider`.
-  - **Hook**: Destructure the `autoSign` *object* (not functions) from `useInterwovenKit`.
-  - **Safety**: Use optional chaining (`autoSign?.`) and check status via `autoSign?.isEnabledByChain[chainId]`.
-  - **Actions**: `await autoSign?.enable(chainId)` and `await autoSign?.disable(chainId)` are asynchronous.
-  - **Permissions (CRITICAL)**: To ensure the session key can sign specific message types, ALWAYS include explicit permissions in `autoSign.enable`:
-    ```javascript
-    await autoSign.enable(chainId, { permissions: ["/initia.move.v1.MsgExecute"] })
-    ```
-  - **Error Handling**: If `autoSign.disable` fails with "authorization not found", handle it by calling `autoSign.enable` with the required permissions to reset the session.
+- **Wallet Modal**: 
+  - Use `openConnect` (not `openModal`) to open the connection modal (v2.4.0+).
+  - **Connected State (CRITICAL)**: When `initiaAddress` is present, ALWAYS provide a clickable UI element (e.g., a button with a shortened address) that calls `openWallet` to allow the user to manage their connection or disconnect.
+- **Auto-Sign Implementation (STRICTLY OPT-IN)**: 
+  - You MUST NOT implement auto-sign support in any scaffold, provider, or component unless explicitly requested (e.g., "add auto-sign support").
+  - When requested:
+    - **Provider**: Pass `enableAutoSign={true}` to `InterwovenKitProvider`.
+    - **Hook**: Destructure the `autoSign` *object* (not functions) from `useInterwovenKit`.
+    - **Safety**: Use optional chaining (`autoSign?.`) and check status via `autoSign?.isEnabledByChain[chainId]`.
+    - **Actions**: `await autoSign?.enable(chainId)` and `await autoSign?.disable(chainId)` are asynchronous.
+    - **Permissions (CRITICAL)**: To ensure the session key can sign specific message types, ALWAYS include explicit permissions in `autoSign.enable`:
+      ```javascript
+      await autoSign.enable(chainId, { permissions: ["/initia.move.v1.MsgExecute"] })
+      ```
+    - **Error Handling**: If `autoSign.disable` fails with "authorization not found", handle it by calling `autoSign.enable` with the required permissions to reset the session.
 - **REST Client**: Instantiate `RESTClient` from `@initia/initia.js` manually; it is NOT exported from the hook.
+  - **CRITICAL**: Do NOT attempt to destructure `networks` or `rest` from `useInterwovenKit`. These objects are NOT available in the hook. Always define your REST/RPC endpoints manually or via your own configuration.
 
 ### Transaction Message Flow (CRITICAL)
 - **Wasm**: ALWAYS include `chainId`. Prefer `requestTxSync`.
+  - **Payload Encoding**: `MsgExecuteContract` expects the `msg` field as bytes (**`Uint8Array`**). Use `new TextEncoder().encode(JSON.stringify(msg))`.
 - **Auto-Sign (Headless)**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include an explicit `feeDenom` (e.g., `feeDenom: "umin"`) AND the `autoSign: true` flag in the request:
   ```javascript
   await requestTxSync({ 
@@ -135,6 +153,16 @@ Then ask a context-specific confirmation:
   - **Correct**: `{ typeUrl: "...", value: { sender: "...", contractAddr: "...", ... } }`
 - **EVM Field Naming**: Use **camelCase** for fields (`contractAddr`, `accessList`, `authList`) and include empty arrays for lists.
 - **Move MsgExecute**: Use **camelCase** for fields; `moduleAddress` MUST be **bech32**.
+  - **Mandatory Arrays (Move Specific)**: ALWAYS include `typeArgs: []` and `args: []` even if they are empty. Omitting these fields in a Move execution message will cause a `TypeError` (Cannot read properties of undefined reading 'length') during the Amino conversion process in the frontend.
+
+### Wasm REST Queries (CRITICAL)
+- When querying Wasm contract state using the `RESTClient` (e.g., `rest.wasm.smartContractState`), the query message MUST be a **Base64-encoded string**.
+- **Example Implementation**:
+  ```javascript
+  const queryData = Buffer.from(JSON.stringify({ get_messages: {} })).toString("base64");
+  const res = await rest.wasm.smartContractState(CONTRACT_ADDR, queryData);
+  ```
+- **Method Name**: ALWAYS use `smartContractState`. Methods like `queryContractSmart` are NOT available in the Initia `RESTClient`.
 
 ### Token Precision & Funding (EVM SPECIFIC)
 - **EVM Precision**: Assume standard EVM precision ($10^{18}$ base units) for all native tokens on EVM appchains (e.g., `GAS`).
@@ -163,6 +191,13 @@ Then ask a context-specific confirmation:
   const res = await rest.move.view(mod_bech32, mod_name, func_name, [], [b64Addr]);
   ```
 - **Response Parsing**: The response from `rest.move.view` is a `ViewResponse` object; you MUST parse `JSON.parse(res.data)` to access the actual values.
+- **Troubleshooting (400 Bad Request)**: If `rest.move.view` returns a 400 error, it is almost ALWAYS because:
+  1. The module address is not bech32.
+  2. The address arguments in `args` are not correctly hex-padded-base64 encoded.
+- **Auto-Sign (No message types configured)**: If `autoSign.enable` fails with "No message types configured", ensure:
+  1. `metadata.minitia.type` is set correctly (e.g., `minimove`, `minievm`).
+  2. `defaultChainId` in `InterwovenKitProvider` matches your `customChain.chain_id`.
+  3. `bech32_prefix` is present at the top level of `customChain`.
 
 ## Operating Procedure (How To Execute Tasks)
 
@@ -175,12 +210,15 @@ Then ask a context-specific confirmation:
    - **Balance**: Ensure the `from` account has enough of the *actual* native denom.
 5. **Scaffolding Cleanup**: Delete placeholder modules/contracts after scaffolding.
 6. **Appchain Health**: If RPC is down, attempt `weave rollup start -d` and verify with `scripts/verify-appchain.sh`.
-7. **Move 2.1 Syntax**: Place doc comments (`///`) **AFTER** attributes like `#[view]`.
-8. **Wasm Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
-9. **Visual Polish**: Prioritize sticky glassmorphism headers, centered app-card layouts, and clear visual hierarchy.
-10. **UX Excellence**: Feed ordering (newest first), input accessibility (above feed), and interactive feedback (hover/focus).
-11. **Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
-12. **Validation**: Run `scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
+7. **Move Development: Acquires Annotation**: Every function that accesses global storage (using `borrow_global`, `borrow_global_mut`, `move_from`, or calling a function that does) MUST include the `acquires` annotation for that resource type.
+8. **Move Development: Reference Rules**: You MUST NOT return a reference (mutable or immutable) derived from a global resource (e.g., via `borrow_global_mut`) from a function unless it is passed as a parameter. Inline the logic or pass the resource as a parameter if needed.
+9. **Move Development: Syntax**: Place doc comments (`///`) **AFTER** attributes like `#[view]` or `#[test]`.
+10. **CLI: Move Publish**: The `minitiad tx move publish` command does NOT use a `--path` flag. Pass the path to the compiled `.mv` file as a positional argument: `minitiad tx move publish <path_to_file>.mv ...`.
+11. **Wasm Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
+12. **Visual Polish**: Prioritize sticky glassmorphism headers, centered app-card layouts, and clear visual hierarchy.
+13. **UX Excellence**: Feed ordering (newest first), input accessibility (above feed), and interactive feedback (hover/focus).
+14. **Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
+15. **Validation**: Run `scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
 
 ## Progressive Disclosure (Read When Needed)
 

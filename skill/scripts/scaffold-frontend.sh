@@ -71,6 +71,16 @@ body {
 }
 EOF
 
+# Create App.css
+cat > src/App.css <<EOF
+.App {
+  text-align: center;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+EOF
+
 # Create index.html
 cat > index.html <<EOF
 <!DOCTYPE html>

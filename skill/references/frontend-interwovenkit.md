@@ -103,11 +103,12 @@ Avoid hard-coded version matrices in this skill.
 7. Prefer `rest.move.resource` for state queries as it is more robust than view functions.
 8. **IMPORTANT (v2.4.0)**: Use `openConnect` (not `openModal`) to open the wallet connection modal. Extract it from the `useInterwovenKit` hook.
 9. **IMPORTANT (v2.4.0)**: `useInterwovenKit` does NOT export a `rest` client. You MUST instantiate `RESTClient` from `@initia/initia.js` manually for queries.
-10. **Auto-Sign API**: The `useInterwovenKit` hook returns an `autoSign` object (not individual functions).
+10. **Auto-Sign API (STRICTLY OPT-IN)**:
+    - **Setup Requirement**: If (and only if) auto-sign support is requested, `enableAutoSign={true}` must be passed to the `InterwovenKitProvider` in `main.jsx`.
+    - **Usage**: The `useInterwovenKit` hook returns an `autoSign` object (not individual functions).
     - Status: `autoSign.isEnabledByChain[chainId]`
     - Enable: `await autoSign.enable(chainId)`
     - Disable: `await autoSign.disable(chainId)`
-    - **Setup Requirement**: `enableAutoSign={true}` must be passed to the `InterwovenKitProvider` in `main.jsx`.
     - **Session Wallet Fix**: You MUST include `bech32_prefix` (e.g., `bech32_prefix: "init"`) as a top-level field in your `customChain` object to avoid derivation `TypeError`.
     - **Headless Flow**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include an explicit `feeDenom` (e.g., `feeDenom: "umin"`) in the transaction request.
 11. **Chain Stability (CRITICAL)**: To avoid "Chain not found" or "URL not found" errors, the `customChain.apis` object MUST include `rpc`, `rest`, AND `indexer` (even if indexer is a placeholder).
