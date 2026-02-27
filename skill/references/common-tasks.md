@@ -59,6 +59,13 @@ const hex = AccAddress.toHex("init1...");
 
 // Hex -> Bech32
 const bech32 = AccAddress.fromHex("0x...");
+
+// Move VM View Call Encoding (Hex-Padded-Base64)
+// CRITICAL: Required for address arguments in rest.move.view
+const encodeMoveViewAddr = (bech32Addr) => {
+  const hex = AccAddress.toHex(bech32Addr).replace('0x', '').padStart(64, '0');
+  return Buffer.from(hex, 'hex').toString('base64');
+};
 ```
 
 ## Token Precision & Denoms

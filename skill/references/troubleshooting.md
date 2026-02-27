@@ -113,6 +113,9 @@ Fix:
 Checks:
 - Wallet connected and `initiaAddress` is present.
 - **SDK Usage**: `LCDClient` is not an export in the current `initia.js`. Use `RESTClient` instead.
+- **Move View Call 500 Error (CRITICAL)**: If `rest.move.view` returns a 500 error, it is almost always due to **incorrect address encoding** in the `args` array.
+  - **Incorrect**: Using `initiaAddress` directly or just stripping `0x`.
+  - **Fix**: You MUST convert bech32 to hex using `AccAddress.toHex(addr)` first, then pad to 64 chars, then base64 encode.
 - **View Function 400/500**: Ensure Move arguments are correctly prefixed (e.g., `address:init1...`).
 - **State Reliability**: Prefer `rest.move.resource()` over `viewFunction()` for querying simple contract state (like an Inventory struct).
 - **EVM Simulation (Hex Prefix)**: `minitiad tx evm call` and `eth_call` often fail if the input hex or contract address is missing the `0x` prefix.
