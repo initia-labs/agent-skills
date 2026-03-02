@@ -306,24 +306,33 @@ export function AutoSignToggle({ chainId }) {
 
 ## Standard Username Pattern
 
-When username support is requested for feeds or message boards, use the following pattern to display the connected user's identity while maintaining privacy for others.
+When username support is requested for feeds or message boards, use:
+- `useInterwovenKit().username` for the connected wallet identity.
+- `useUsernameQuery(address?)` for resolving any other wallet address.
 
 ```tsx
-import { useInterwovenKit } from "@initia/interwovenkit-react";
+import { useInterwovenKit, useUsernameQuery } from "@initia/interwovenkit-react";
 
 export function Message({ message }) {
   const { initiaAddress, username } = useInterwovenKit();
+  const { data: senderUsername } = useUsernameQuery(message.sender);
 
   return (
     <div className="message">
       <span className="sender">
-        {message.sender === initiaAddress && username ? username : shortenAddress(message.sender)}
+        {message.sender === initiaAddress
+          ? (username ? username : shortenAddress(message.sender))
+          : (senderUsername ? senderUsername : shortenAddress(message.sender))}
       </span>
       <p>{message.text}</p>
     </div>
   );
 }
 ```
+
+`useUsernameQuery` API:
+- `useUsernameQuery()` -> connected wallet address
+- `useUsernameQuery(address)` -> explicit address resolution
 
 ## Reference UI Patterns (Optional)
 
@@ -614,6 +623,8 @@ export function getHexAddress(address: string) {
   - **Fix**: Use `new TextEncoder().encode(JSON.stringify(msg))` for the `msg` field.
 
 - **Buffer is not defined**: Initia.js uses Node.js globals. Use `vite-plugin-node-polyfills` or manual global assignment.
+- **Invalid hook call after linking local InterwovenKit**: This usually means duplicate React runtimes from symlinked package dependencies.
+  - **Fix**: In `vite.config.js`, add `resolve.dedupe: ["react", "react-dom"]` and alias both to the app's `node_modules` copies. Then clear Vite cache (`rm -rf node_modules/.vite*`) and restart dev server.
 - **switchChain is not a function**: `switchChain` is NOT exported from `useInterwovenKit`. Change chain context by setting the `defaultChainId` in `InterwovenKitProvider` or by using `openBridge` to move assets between specific chains.
 - **Chain not found**: Ensure `customChain` AND `customChains: [customChain]` are passed to `InterwovenKitProvider`. Ensure `rpc`, `rest`, AND `indexer` are present in `customChain.apis`.
 - **URL not found**: Ensure `rpc`, `rest`, AND `indexer` are present in `customChain.apis`.

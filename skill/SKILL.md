@@ -46,7 +46,11 @@ Then ask a context-specific confirmation:
 - You MUST NOT implement username support in any scaffold, component, or code snippet unless explicitly requested (e.g., "add username support").
 - When requested, ALWAYS use the `username` property from `useInterwovenKit()`.
 - Pattern: `{username ? username : shortenAddress(initiaAddress)}`
-- Do NOT resolve via REST unless the hook property is insufficient.
+- For resolving usernames of arbitrary wallet addresses (for example, MemoBoard sender rows), use `useUsernameQuery(address?)` with the sender address.
+- Do NOT resolve via REST unless hook-based resolution is insufficient.
+- `useUsernameQuery` behavior:
+  - No param: resolves connected wallet address (`useAddress()` fallback).
+  - With param: resolves the provided address.
 
 ### Workspace Hygiene (CRITICAL)
 - You MUST NOT leave temporary files or metadata JSON files (e.g., `store_tx.json`, `tx.json`, `.bin`) in the project directory after a task.
