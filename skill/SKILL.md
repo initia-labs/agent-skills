@@ -25,6 +25,40 @@ Then ask a context-specific confirmation:
 - Frontend task: "I found a local rollup config/runtime. Should I use this rollup for frontend integration?"
 - Non-frontend task: "I found local runtime values (VM, chain ID, endpoints). Should I use these for this task?"
 
+## Environment Setup Workflow (One-Prompt Setup)
+
+When the user asks to "set up my environment for the [Track] track" (Step 5), execute this sequence:
+
+### 1. Identify Track Requirements & Prerequisites
+- **Move Track:** `minimove` repo -> `minitiad`. Requires `go`.
+- **EVM Track:** `minievm` repo -> `minitiad`. Requires `go`, `foundry`.
+- **Wasm Track:** `miniwasm` repo -> `minitiad`. Requires `go`, `rust/cargo`.
+
+### 2. Check System Prerequisites
+For each required tool (`go`, `docker`, `cargo`, `foundry`):
+- If **missing**: Inform the user and **propose** the installation command (e.g., "I see you're missing Cargo. Would you like me to install it for you using `rustup`?").
+- If **present**: Proceed silently.
+
+### 3. Install Core Initia Tools
+Run `scripts/install-tools.sh` to install `jq`, `weave`, and `initiad` (L1).
+- **Security**: If the script requires `sudo`, explain this to the user before running.
+
+### 4. Build VM-Specific Binary (`minitiad`)
+Clone, build, and **clean up** the relevant VM from source:
+- **Move:** `git clone --depth 1 https://github.com/initia-labs/minimove.git /tmp/minimove && cd /tmp/minimove && make install && cd .. && rm -rf /tmp/minimove`
+- **EVM:** `git clone --depth 1 https://github.com/initia-labs/minievm.git /tmp/minievm && cd /tmp/minievm && make install && cd .. && rm -rf /tmp/minievm`
+- **Wasm:** `git clone --depth 1 https://github.com/initia-labs/miniwasm.git /tmp/miniwasm && cd /tmp/miniwasm && make install && cd .. && rm -rf /tmp/miniwasm`
+
+### 5. Configure PATH
+- Ensure `~/go/bin` is in the user's `PATH`.
+- Check shell config files (`.zshrc`, `.bashrc`) and suggest the `export` command if missing.
+
+### 6. Final Verification
+Run:
+- `weave version`
+- `initiad version`
+- `minitiad version` (Verify it matches the chosen VM)
+
 ## Opinionated Defaults
 
 | Area | Default | Notes |
@@ -167,6 +201,11 @@ Then ask a context-specific confirmation:
   const res = await rest.wasm.smartContractState(CONTRACT_ADDR, queryData);
   ```
 - **Method Name**: ALWAYS use `smartContractState`. Methods like `queryContractSmart` are NOT available in the Initia `RESTClient`.
+
+### Wasm Rust Testing (CRITICAL)
+- When writing unit tests for Wasm contracts, ALWAYS use `.as_str()` when comparing `cosmwasm_std::Addr` with a string literal or `String`. `Addr` does NOT implement `PartialEq<&str>` or `PartialEq<String>` directly.
+- **Incorrect**: `assert_eq!("user1", value.sender);`
+- **Correct**: `assert_eq!("user1", value.sender.as_str());`
 
 ### Token Precision & Funding (EVM SPECIFIC)
 - **EVM Precision**: Assume standard EVM precision ($10^{18}$ base units) for all native tokens on EVM appchains (e.g., `GAS`).
