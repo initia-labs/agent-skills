@@ -267,7 +267,7 @@ minitiad tx evm call <contract-address> $DATA --from gas-station --chain-id <cha
 EOF
 
     # Initialize git and install forge-std
-    (cd "$target" && git init -q && forge install foundry-rs/forge-std --no-git -q || true)
+    (cd "$target" && git init -q && forge install foundry-rs/forge-std --no-git -q) || true
     cat > "$target/remappings.txt" <<EOF
 forge-std/=lib/forge-std/src/
 EOF

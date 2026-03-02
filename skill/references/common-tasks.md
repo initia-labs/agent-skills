@@ -47,7 +47,7 @@ Initia uses different address formats depending on the layer and VM:
 ### CLI Conversion
 Use these scripts to convert between formats:
 - **Hex to Bech32**: `../scripts/convert-address.py <0x...>`
-- **Bech32 to Hex**: `../scripts/to_hex.py <init1...>`
+- **Bech32 to Hex**: `../scripts/convert-address.py <init1...> --to-hex`
 
 ### Code Conversion (JS/TS)
 Use `@initia/initia.js`:

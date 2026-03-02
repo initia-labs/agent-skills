@@ -112,7 +112,7 @@ echo "Successfully installed to: $INSTALL_PATH"
 echo ""
 echo "Installed files:"
 find "$INSTALL_PATH" -type f | while read -r file; do
-  echo "  - ${file#$INSTALL_PATH/}"
+  echo "  - ${file#"$INSTALL_PATH"/}"
 done
 echo ""
 echo "The skill is now available in Codex."

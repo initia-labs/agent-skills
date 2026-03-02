@@ -45,7 +45,10 @@ def convert_address(address: str, prefix: str, to_hex: bool = False) -> str:
     
     if to_hex:
         if is_hex:
-            return "0x" + address.lower().removeprefix("0x")
+            clean = address.lower().removeprefix("0x")
+            if len(clean) != 40 or not all(c in "0123456789abcdef" for c in clean):
+                raise ValueError("hex address must be 20 bytes (40 hex chars)")
+            return "0x" + clean
         return bech32_to_hex(address)
     
     if is_hex:

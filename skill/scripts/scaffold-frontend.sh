@@ -233,7 +233,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <QueryClientProvider client={queryClient}>
         <InterwovenKitProvider
           {...TESTNET}
-          defaultChainId="initiation-2"
+          defaultChainId={customChain.chain_id}
           customChain={customChain}
           customChains={[customChain]}
         >
@@ -286,7 +286,7 @@ function App() {
             Your appchain frontend is ready. Modify <code>src/App.jsx</code> to start building your application.
           </p>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <a href="https://docs.initia.xyz" target="_blank" className="btn btn-primary">Documentation</a>
+            <a href="https://docs.initia.xyz" target="_blank" rel="noopener noreferrer" className="btn btn-primary">Documentation</a>
             <button className="btn btn-secondary">Learn More</button>
           </div>
         </div>

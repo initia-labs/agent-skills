@@ -370,8 +370,6 @@ minitiad query wasm contract-state smart <CONTRACT_ADDRESS> '<QUERY_JSON>'
 **Pro Tip: Wasm Transaction Messages (CRITICAL)**: When sending a `MsgExecuteContract` via `requestTxBlock`, the `msg` field MUST be a `Uint8Array` (bytes). If using `requestTxSync`, ensure the `messages` (plural) field is used.
   - **Example**: `msg: new TextEncoder().encode(JSON.stringify({ post_message: { message } }))`
 
-```
-
 ## EVM (Solidity)
 
 ### Project Structure and Filenames

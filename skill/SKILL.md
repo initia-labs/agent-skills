@@ -141,7 +141,7 @@ Run:
 - Extract bytecode from Foundry artifacts using `jq`; ensure NO `0x` prefix and NO trailing newlines in `.bin` files.
 - If a tool requires a private key, find an alternative workflow using Initia CLI or `InterwovenKit`.
 
-### Frontend Requirements (CRITICAL)
+### Frontend Requirements (ADDITIONAL)
 - **Polyfills**: Use `vite-plugin-node-polyfills` in `vite.config.js` with `globals: { Buffer: true, process: true }`. If using manual polyfills, define `Buffer` and `process` global polyfills at the TOP of `main.jsx`.
   ```javascript
   import { Buffer } from "buffer";
