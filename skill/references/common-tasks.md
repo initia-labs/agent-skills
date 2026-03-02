@@ -19,6 +19,10 @@
   > **SECURITY NOTE:** This flow is for **Hackathon/Testnet use only**. NEVER auto-import keys from a JSON config if the target network is `mainnet`.
   ```bash
   MNEMONIC=$(jq -r '.common.gas_station.mnemonic' ~/.weave/config.json)
+  if [ -z "$MNEMONIC" ] || [ "$MNEMONIC" = "null" ]; then
+    echo "Error: gas-station mnemonic missing in ~/.weave/config.json" >&2
+    exit 1
+  fi
   # Use this mnemonic to import the key to initiad and minitiad keyrings
   ```
 
@@ -64,7 +68,9 @@ const bech32 = AccAddress.fromHex("0x...");
 // CRITICAL: Required for address arguments in rest.move.view
 const encodeMoveViewAddr = (bech32Addr) => {
   const hex = AccAddress.toHex(bech32Addr).replace('0x', '').padStart(64, '0');
-  return Buffer.from(hex, 'hex').toString('base64');
+  const bytes = Uint8Array.from(hex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
+  const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
+  return btoa(binary);
 };
 ```
 

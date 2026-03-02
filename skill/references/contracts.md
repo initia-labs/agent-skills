@@ -455,7 +455,7 @@ forge script script/Deploy.s.sol:Deploy \
 ### Handling Token Precision
 When users request transactions in "tokens" (e.g., "1 token"):
 - **Default**: Assume standard EVM precision ($10^{18}$ wei).
-- **Supply Check**: Before transacting, check the total supply with `minitiad q bank total`.
+- **Supply Check**: `minitiad q bank total` only reports native bank denoms (like `umin`/`uinit`). For ERC-20 supply, call the token contract's `totalSupply()` via `eth_call` (or equivalent RPC/SDK contract method).
 - **Auto-Scaling**: If the requested amount exceeds the total supply or the account balance, scale the request to a safe value (e.g., use `1000` for "1 token") and explain: *"I've scaled your request to 1,000 units to fit the test environment's supply limits."*
 
 ### Finding your Hex Address

@@ -17,6 +17,10 @@ fi
 
 target="$1"
 pkg_name=$(basename "$target")
+sanitized_pkg_name="$(printf '%s' "$pkg_name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/[-._]{2,}/-/g; s/^[-._]+//; s/[-._]+$//')"
+if [[ -z "$sanitized_pkg_name" ]]; then
+  sanitized_pkg_name="initia-frontend"
+fi
 
 mkdir -p "$target/src"
 cd "$target"
@@ -25,7 +29,7 @@ cd "$target"
 echo "Creating package.json..."
 cat > package.json <<JSON
 {
-  "name": "$pkg_name",
+  "name": "$sanitized_pkg_name",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -128,17 +132,7 @@ body {
 .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
 EOF
 
-# Step 4: Create App.css
-cat > src/App.css <<EOF
-.App {
-  text-align: center;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-EOF
-
-# Step 5: Create index.html
+# Step 4: Create index.html
 cat > index.html <<EOF
 <!DOCTYPE html>
 <html lang="en">
@@ -155,7 +149,7 @@ cat > index.html <<EOF
 </html>
 EOF
 
-# Step 6: Create main.jsx with Provider setup
+# Step 5: Create main.jsx with Provider setup
 cat > src/main.jsx <<EOF
 import { Buffer } from 'buffer'
 window.Buffer = Buffer
@@ -183,6 +177,7 @@ const wagmiConfig = createConfig({
 
 // Custom Appchain Configuration
 // This is REQUIRED for local rollups to be recognized by InterwovenKit.
+// Set VITE_NATIVE_DECIMALS in .env (for example: VITE_NATIVE_DECIMALS=6) when your chain is not 18 decimals.
 const customChain = {
   chain_id: '<INSERT_APPCHAIN_ID_HERE>', // Update to match your rollup
   chain_name: '<INSERT_APP_NAME_HERE>',
@@ -222,7 +217,7 @@ const customChain = {
       denom: '<INSERT_NATIVE_DENOM_HERE>',
       name: 'Native Token',
       symbol: '<INSERT_NATIVE_SYMBOL_HERE>',
-      decimals: 18
+      decimals: Number(import.meta.env.VITE_NATIVE_DECIMALS ?? 18)
     }
   ]
 }
@@ -245,7 +240,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 )
 EOF
 
-# Step 7: Create App.jsx
+# Step 6: Create App.jsx
 cat > src/App.jsx <<EOF
 import React from 'react'
 import { useInterwovenKit } from "@initia/interwovenkit-react";
@@ -302,7 +297,7 @@ function App() {
 export default App
 EOF
 
-# Step 8: Perform a single, optimized npm install
+# Step 7: Perform a single, optimized npm install
 echo "Installing React, Vite, and Initia dependencies (single pass)..."
 npm install --quiet --no-progress --no-audit --no-fund --prefer-offline
 

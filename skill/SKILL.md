@@ -7,6 +7,8 @@ description: End-to-end Initia development and operations guide. Use when asked 
 
 Deliver practical guidance for full-stack Initia development: contracts, frontend integration, and appchain operations.
 
+Command examples in this file assume the working directory is `skill/`; use `scripts/...` paths accordingly.
+
 ## Intake Questions (Ask First)
 
 Collect missing inputs before implementation:
@@ -247,9 +249,9 @@ Run:
 1. **Classify Layer**: Contract, Frontend, Appchain Ops, or Integration.
 2. **Environment Check**: Verify tools (`cargo`, `forge`, `minitiad`) are in PATH. Use absolute paths if needed.
 3. **Workspace Awareness**: Check for existing `Move.toml` or `package.json` before scaffolding. Use provided scripts for non-interactive scaffolding.
-4. **Pre-Deployment Checklist (CLI)**: Before deploying contracts or sending tokens via CLI, verify the actual environment:
-   - **Chain ID**: `curl -s http://localhost:26657/status | jq -r '.result.node_info.network'`
-   - **Native Denom**: `minitiad q bank total --node http://localhost:26657`
+4. **Pre-Deployment Checklist (CLI)**: Before deploying contracts or sending tokens via CLI, verify the actual environment (set `RPC_ENDPOINT` from runtime discovery):
+   - **Chain ID**: `curl -s "${RPC_ENDPOINT}/status" | jq -r '.result.node_info.network'`
+   - **Native Denom**: `minitiad q bank total --node "${RPC_ENDPOINT}"`
    - **Balance**: Ensure the `from` account has enough of the *actual* native denom.
 5. **Scaffolding Cleanup**: Delete placeholder modules/contracts after scaffolding.
 6. **Appchain Health**: If RPC is down, attempt `weave rollup start -d` and verify with `scripts/verify-appchain.sh`.

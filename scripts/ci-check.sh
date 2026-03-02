@@ -25,19 +25,21 @@ warn() {
 
 [[ -f "$SKILL_FILE" ]] || fail "$SKILL_FILE missing"
 
-for cmd in python3 npx; do
-  if [[ "$cmd" == "python3" ]]; then
-    if command -v python3 >/dev/null 2>&1; then
-      PYTHON_BIN="python3"
-    elif command -v python >/dev/null 2>&1; then
-      PYTHON_BIN="python"
-    else
-      fail "required command not found: python3 (or python)"
-    fi
+if command -v python3.9 >/dev/null 2>&1; then
+  PYTHON_BIN="python3.9"
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  if python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)'; then
+    PYTHON_BIN="python"
   else
-    command -v "$cmd" >/dev/null 2>&1 || fail "required command not found: $cmd"
+    fail "python is present but version is < 3.9; require python3.9+"
   fi
-done
+else
+  fail "required command not found: python3.9/python3/python"
+fi
+
+command -v npx >/dev/null 2>&1 || fail "required command not found: npx"
 
 if find skill/scripts -type d -name "__pycache__" -print -quit | grep -q .; then
   fail "__pycache__ directories are not allowed under skill/scripts"
