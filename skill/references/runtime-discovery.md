@@ -25,6 +25,23 @@ weave gas-station show
 test -f ~/.minitia/artifacts/config.json && cat ~/.minitia/artifacts/config.json
 ```
 
+### Fallback When `weave` Is Installed But Broken
+
+If `weave` exists in `PATH` but fails immediately with shell errors such as
+`Not: command not found`, do not block on `weave`. Continue runtime discovery
+with direct config and `minitiad` commands:
+
+```bash
+test -f ~/.minitia/artifacts/config.json && cat ~/.minitia/artifacts/config.json
+minitiad status | jq -r '.sync_info.latest_block_height'
+minitiad keys show gas-station -a --keyring-backend test
+minitiad query bank balances "$(minitiad keys show gas-station -a --keyring-backend test)"
+```
+
+Use `~/.minitia/artifacts/config.json` as the source of truth for
+`l2_config.chain_id`, denom defaults, and Gas Station discovery when `weave`
+is unavailable or corrupted.
+
 ## How To Use Results
 
 1. **Identify VM** (`evm`, `move`, `wasm`) from rollup metadata/config.

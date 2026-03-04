@@ -364,8 +364,25 @@ minitiad tx wasm execute <CONTRACT_ADDRESS> '<MSG_JSON>' \
 minitiad query wasm contract-state smart <CONTRACT_ADDRESS> '<QUERY_JSON>'
 ```
 
+If the CLI smart query rejects a contract address with a Bech32 checksum error even though that address came from the instantiate event, verify the address with:
+
+```bash
+minitiad query wasm list-contract-by-code <CODE_ID>
+```
+
+Then query via the REST path instead of blocking on the CLI parser:
+
+```bash
+QUERY_B64=$(printf '%s' '<QUERY_JSON>' | base64)
+curl "http://127.0.0.1:1317/cosmwasm/wasm/v1/contract/<CONTRACT_ADDRESS>/smart/$QUERY_B64"
+```
+
 **Pro Tip: Wasm REST Queries (CRITICAL)**: When querying Wasm contract state using the `RESTClient` (e.g., `rest.wasm.smartContractState`), the query object MUST be manually Base64-encoded. The client does NOT handle this automatically.
   - **Example**: `const query = Buffer.from(JSON.stringify({ msg: {} })).toString("base64"); await rest.wasm.smartContractState(addr, query);`
+  - **Response Shape**: In browser usage, `smartContractState` often returns the decoded query payload directly rather than under `.data`. Read the returned object shape before adding extra parsing.
+
+**Pro Tip: Wasm Message Schema (CRITICAL)**: The JSON used for both queries and executes MUST match the Rust `ExecuteMsg` and `QueryMsg` variants exactly. Do NOT assume names like `all_messages` or fields like `message` unless they are actually defined by the contract.
+  - **Example**: if the contract defines `PostMessage { message: String }`, the execute payload must be `{ post_message: { message: value } }`.
 
 **Pro Tip: Wasm Transaction Messages (CRITICAL)**: When sending a `MsgExecuteContract` via `requestTxBlock`, the `msg` field MUST be a `Uint8Array` (bytes). If using `requestTxSync`, ensure the `messages` (plural) field is used.
   - **Example**: `msg: new TextEncoder().encode(JSON.stringify({ post_message: { message } }))`

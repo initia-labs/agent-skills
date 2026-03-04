@@ -103,7 +103,9 @@ Avoid hard-coded version matrices in this skill.
 7. Prefer `rest.move.resource` for state queries as it is more robust than view functions.
 8. **IMPORTANT (v2.4.0)**: Use `openConnect` (not `openModal`) to open the wallet connection modal. Extract it from the `useInterwovenKit` hook.
 9. **IMPORTANT (v2.4.0)**: `useInterwovenKit` does NOT export a `rest` client. You MUST instantiate `RESTClient` from `@initia/initia.js` manually for queries.
-10. **Auto-Sign API (STRICTLY OPT-IN)**:
+10. If the app depends on a deployed contract, store the resolved contract address in runtime config (for example, `.env` / `VITE_*`) instead of leaving placeholder constants in component code.
+11. If `.env` values are added or changed in a running Vite app, restart the dev server so the new values are loaded.
+12. **Auto-Sign API (STRICTLY OPT-IN)**:
     - **Setup Requirement**: If (and only if) auto-sign support is requested, `enableAutoSign={true}` must be passed to the `InterwovenKitProvider` in `main.jsx`.
     - **Usage**: The `useInterwovenKit` hook returns an `autoSign` object (not individual functions).
     - Status: `autoSign.isEnabledByChain[chainId]`
@@ -111,7 +113,7 @@ Avoid hard-coded version matrices in this skill.
     - Disable: `await autoSign.disable(chainId)`
     - **Session Wallet Fix**: You MUST include `bech32_prefix` (e.g., `bech32_prefix: "init"`) as a top-level field in your `customChain` object to avoid derivation `TypeError`.
     - **Headless Flow**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include an explicit `feeDenom` (e.g., `feeDenom: "umin"`) in the transaction request.
-11. **Chain Stability (CRITICAL)**: To avoid "Chain not found" or "URL not found" errors, the `customChain.apis` object MUST include `rpc`, `rest`, AND `indexer` (even if indexer is a placeholder).
+13. **Chain Stability (CRITICAL)**: To avoid "Chain not found" or "URL not found" errors, the `customChain.apis` object MUST include `rpc`, `rest`, AND `indexer` (even if indexer is a placeholder).
 
 ## Provider Setup (Current Baseline)
 
@@ -309,11 +311,12 @@ export function AutoSignToggle({ chainId }) {
 When username support is requested for feeds or message boards, use:
 - `useInterwovenKit().username` for the connected wallet identity.
 - `useUsernameQuery(address?)` for resolving any other wallet address.
+- For rendered message lists, move the sender label into a child component and call `useUsernameQuery(address)` there so the React hooks usage remains valid.
 
 ```tsx
 import { useInterwovenKit, useUsernameQuery } from "@initia/interwovenkit-react";
 
-export function Message({ message }) {
+export function MessageRow({ message }) {
   const { initiaAddress, username } = useInterwovenKit();
   const { data: senderUsername } = useUsernameQuery(message.sender);
 
@@ -327,6 +330,12 @@ export function Message({ message }) {
       <p>{message.text}</p>
     </div>
   );
+}
+
+export function MessageList({ messages }) {
+  return messages.map((message, index) => (
+    <MessageRow key={`${message.sender}-${index}`} message={message} />
+  ));
 }
 ```
 
@@ -467,7 +476,8 @@ export function useBoardActions(contractAddress: string) {
   const postMessage = async (message: string) => {
     if (!initiaAddress) return;
 
-    // MsgExecuteContract expects 'msg' as bytes (Uint8Array)
+    // MsgExecuteContract expects 'msg' as bytes (Uint8Array).
+    // The JSON shape must match the contract's ExecuteMsg exactly.
     const msg = new TextEncoder().encode(JSON.stringify({ post_message: { message } }));
 
     return requestTxSync({
@@ -618,9 +628,13 @@ export function getHexAddress(address: string) {
 
 - **Wasm: Query 400 Bad Request**: `smartContractState` expects the query to be a Base64-encoded string.
   - **Fix**: `const queryData = Buffer.from(JSON.stringify(query)).toString("base64"); rest.wasm.smartContractState(addr, queryData);`
+- **Wasm: Query response shape is unexpected**: `smartContractState` often returns the decoded payload directly, not under `res.data`.
+  - **Fix**: Inspect the returned object first and prefer direct access like `res.messages` when the contract query returns `{ messages: [...] }`.
 
 - **Wasm: Transaction "invalid payload" / map error**: `MsgExecuteContract` expects the `msg` field as bytes (`Uint8Array`). If `requestTxBlock` fails with a `.map()` error, try using `requestTxSync` with the `messages` (plural) field.
   - **Fix**: Use `new TextEncoder().encode(JSON.stringify(msg))` for the `msg` field.
+- **Wasm: Query still shows old state right after post**: local REST/indexer visibility can lag briefly behind a successful `requestTxSync`.
+  - **Fix**: wait a short delay before refreshing, or poll until the new state appears.
 
 - **Buffer is not defined**: Initia.js uses Node.js globals. Use `vite-plugin-node-polyfills` or manual global assignment.
 - **Invalid hook call after linking local InterwovenKit**: This usually means duplicate React runtimes from symlinked package dependencies.

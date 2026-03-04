@@ -23,6 +23,10 @@ If critical values are missing, ask concise follow-up questions before generatin
 
 If `chain_id`/endpoints/VM are missing, run the discovery flow in `references/runtime-discovery.md` before assuming defaults.
 
+If `weave` is installed but fails with shell-level errors, continue discovery
+with `~/.minitia/artifacts/config.json` and direct `minitiad` commands instead
+of blocking on `weave`.
+
 Then ask a context-specific confirmation:
 - Frontend task: "I found a local rollup config/runtime. Should I use this rollup for frontend integration?"
 - Non-frontend task: "I found local runtime values (VM, chain ID, endpoints). Should I use these for this task?"
@@ -37,7 +41,12 @@ When the user asks to "set up my environment for the [Track] track" (Step 5), ex
 - **Wasm Track:** `miniwasm` repo -> `minitiad`. Requires `go`, `rust/cargo`.
 
 ### 2. Check System Prerequisites
-For each required tool (`go`, `docker`, `cargo`, `foundry`):
+Check prerequisites by selected track (always check `docker` for tool installer compatibility):
+- **Move Track:** `go`, `docker`
+- **EVM Track:** `go`, `docker`, `foundry`
+- **Wasm Track:** `go`, `docker`, `cargo`
+
+For each required tool in the selected track:
 - If **missing**: Inform the user and **propose** the installation command (e.g., "I see you're missing Cargo. Would you like me to install it for you using `rustup`?").
 - If **present**: Proceed silently.
 
@@ -54,6 +63,8 @@ Clone, build, and **clean up** the relevant VM from source:
 ### 5. Configure PATH
 - Ensure `~/go/bin` is in the user's `PATH`.
 - Check shell config files (`.zshrc`, `.bashrc`) and suggest the `export` command if missing.
+- After updating shell config, tell the user to run `source ~/.zshrc` (or open a new terminal) to apply changes in their current shell.
+- For verification, you may run `zsh -lc 'source ~/.zshrc && <command>'` in a single command; this does not persist across separate assistant commands.
 
 ### 6. Final Verification
 Run:
@@ -80,9 +91,10 @@ Run:
 
 ### Initia Usernames (STRICTLY OPT-IN)
 - You MUST NOT implement username support in any scaffold, component, or code snippet unless explicitly requested (e.g., "add username support").
-- When requested, ALWAYS use the `username` property from `useInterwovenKit()`.
+- When requested, use `useInterwovenKit().username` only for the connected wallet's own display name.
 - Pattern: `{username ? username : shortenAddress(initiaAddress)}`
-- For resolving usernames of arbitrary wallet addresses (for example, MemoBoard sender rows), use `useUsernameQuery(address?)` with the sender address.
+- For resolving usernames of arbitrary wallet addresses (for example, MemoBoard sender rows), use `useUsernameQuery(address?)` with the sender address; this requires `@initia/interwovenkit-react` `2.4.6` or newer.
+- For feeds, boards, or any rendered list of messages/accounts, resolve sender usernames inside a child row component (for example `MessageRow`) and call `useUsernameQuery(address)` there. Do NOT call hooks directly inside a parent component's `.map()` callback or conditional loop body.
 - Do NOT resolve via REST unless hook-based resolution is insufficient.
 - `useUsernameQuery` behavior:
   - No param: resolves connected wallet address (`useAddress()` fallback).
@@ -131,6 +143,7 @@ Run:
 
 ### Frontend Requirements (CRITICAL)
 - **Placeholder Sync**: Immediately after scaffolding a frontend, you MUST update all placeholders in `main.jsx` (like `<INSERT_APPCHAIN_ID_HERE>`, `<INSERT_NATIVE_DENOM_HERE>`, etc.) with the actual values discovered during the Research phase (e.g., `bank-1`, `GAS`, `minievm`).
+- **Runtime Config Sync**: If the frontend depends on a deployed contract address, you MUST wire the resolved live address into runtime config (for example, `.env` / `VITE_*`) instead of leaving only placeholders or examples. If `.env` values are added or changed for a running Vite app, tell the user to restart the dev server.
 - **Hook Exports**: `useInterwovenKit` exports `initiaAddress`, `address`, `username`, `openConnect`, `openWallet`, `openBridge`, `requestTxBlock`, `requestTxSync`, and `autoSign`.
 - **Transaction Guards**: Before calling `requestTxBlock` or `requestTxSync`, you MUST verify that `initiaAddress` is defined.
 - **Sender Address (ALL VMs)**: In Initia, the `sender` field for all message types (`MsgCall`, `MsgExecute`, `MsgExecuteContract`) MUST be the Bech32 address. Use `initiaAddress` for this field to ensure compatibility across EVM, Move, and Wasm appchains. Using the hex `address` on an EVM chain for the `sender` field in a Cosmos-style message will cause an "empty address string" or "decoding bech32 failed" error.
@@ -197,12 +210,15 @@ Run:
 
 ### Wasm REST Queries (CRITICAL)
 - When querying Wasm contract state using the `RESTClient` (e.g., `rest.wasm.smartContractState`), the query message MUST be a **Base64-encoded string**.
+- The query JSON and execute JSON MUST match the contract's Rust message schema exactly. Do NOT assume names like `all_messages` or specific field names such as `text` or `message`; for example, MemoBoard variants commonly use `get_messages` with `post_message: { message: ... }`, while other contracts may use different field names.
 - **Example Implementation**:
   ```javascript
   const queryData = Buffer.from(JSON.stringify({ get_messages: {} })).toString("base64");
   const res = await rest.wasm.smartContractState(CONTRACT_ADDR, queryData);
   ```
+- **Response Shape**: `smartContractState` commonly returns the decoded payload directly (for example `res.messages`) rather than nesting it under `res.data`. Do not assume a `.data` wrapper unless you have verified the concrete response shape.
 - **Method Name**: ALWAYS use `smartContractState`. Methods like `queryContractSmart` are NOT available in the Initia `RESTClient`.
+- **CLI Fallback**: If `minitiad query wasm contract-state smart <CONTRACT_ADDRESS> ...` fails with a Bech32 checksum error even though the address came from the instantiate event or `list-contract-by-code`, treat the chain-emitted address as the source of truth. Verify it with `minitiad query wasm list-contract-by-code <CODE_ID>` and continue with the REST endpoint path or `RESTClient` instead of blocking on the CLI parser.
 
 ### Wasm Rust Testing (CRITICAL)
 - When writing unit tests for Wasm contracts, ALWAYS use `.as_str()` when comparing `cosmwasm_std::Addr` with a string literal or `String`. `Addr` does NOT implement `PartialEq<&str>` or `PartialEq<String>` directly.
