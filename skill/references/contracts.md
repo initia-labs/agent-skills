@@ -107,7 +107,6 @@ Use the provided script to scaffold a project with pre-cloned local dependencies
 [package]
 name = "MyProject"
 version = "0.0.1"
-edition = "2024.alpha" # Triggers a warning in some compilers, but safe to ignore.
 
 [dependencies]
 InitiaStdlib = { local = "deps/movevm/precompile/modules/initia_stdlib" }
@@ -200,6 +199,7 @@ Initia requires the module address in `Move.toml` to match the sender's address 
 2.  **Update Move.toml**: Replace the placeholder address in `Move.toml` with the **hex** version of your sender address.
     *   Example: `my_module = "0x6698..."`
 3.  **Clean Build**: If you encounter `MODULE_ADDRESS_DOES_NOT_MATCH_SENDER`, delete the `build/` directory and rebuild.
+4.  **Upgrade Compatibility**: If you are publishing an updated module from the same account, Initia enforces backward compatibility. Preserve public function signatures and public struct abilities, or rename the module before redeploying.
 
 ```bash
 # 1. Automated Deploy (Recommended)
@@ -240,6 +240,7 @@ minitiad query move view <MODULE_ADDRESS> <MODULE_NAME> <FUNCTION_NAME> \
 
 **Pro Tip: Move REST Queries (CRITICAL)**: When querying Move contract state using the `RESTClient` (e.g., `rest.move.view`), the module address MUST be in **bech32** format. Address arguments in `args` MUST be converted to a 32-byte padded hex string and then Base64-encoded.
   - The response from `rest.move.view` is a `ViewResponse` object; you MUST parse `response.data` (a JSON string) to access the actual values.
+  - For `rest.move.resource`, the owner address remains bech32, but the struct tag must use the module's **hex** address (for example `0xabc...::items::Inventory`).
   - **Example**:
     ```javascript
     const b64Addr = Buffer.from(AccAddress.toHex(addr).replace('0x', '').padStart(64, '0'), 'hex').toString('base64');

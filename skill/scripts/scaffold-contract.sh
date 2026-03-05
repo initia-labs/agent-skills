@@ -35,7 +35,6 @@ case "$vm" in
 [package]
 name = "$pkg_name"
 version = "0.0.1"
-edition = "2024.alpha"
 
 [dependencies]
 InitiaStdlib = { local = "deps/movevm/precompile/modules/initia_stdlib" }

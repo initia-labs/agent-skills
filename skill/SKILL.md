@@ -53,12 +53,34 @@ For each required tool in the selected track:
 ### 3. Install Core Initia Tools
 Run `scripts/install-tools.sh` to install `jq`, `weave`, and `initiad` (L1).
 - **Security**: If the script requires `sudo`, explain this to the user before running.
+- If the required tools are already present, prefer verifying versions over reinstalling. Pinned installer versions may lag behind what is already installed on the machine.
 
 ### 4. Build VM-Specific Binary (`minitiad`)
-Clone, build, and **clean up** the relevant VM from source:
-- **Move:** `git clone --depth 1 https://github.com/initia-labs/minimove.git /tmp/minimove && cd /tmp/minimove && make install && cd .. && rm -rf /tmp/minimove`
-- **EVM:** `git clone --depth 1 https://github.com/initia-labs/minievm.git /tmp/minievm && cd /tmp/minievm && make install && cd .. && rm -rf /tmp/minievm`
-- **Wasm:** `git clone --depth 1 https://github.com/initia-labs/miniwasm.git /tmp/miniwasm && cd /tmp/miniwasm && make install && cd .. && rm -rf /tmp/miniwasm`
+Clone, build, and **clean up** the relevant VM from source.
+
+Run the build from the repository directory itself. Do not rely on shell-chained `cd ... && make install` examples if your execution environment manages working directories separately.
+
+- **Move:**
+  ```sh
+  git clone --depth 1 https://github.com/initia-labs/minimove.git /tmp/minimove
+  cd /tmp/minimove
+  make install
+  rm -rf /tmp/minimove
+  ```
+- **EVM:**
+  ```sh
+  git clone --depth 1 https://github.com/initia-labs/minievm.git /tmp/minievm
+  cd /tmp/minievm
+  make install
+  rm -rf /tmp/minievm
+  ```
+- **Wasm:**
+  ```sh
+  git clone --depth 1 https://github.com/initia-labs/miniwasm.git /tmp/miniwasm
+  cd /tmp/miniwasm
+  make install
+  rm -rf /tmp/miniwasm
+  ```
 
 ### 5. Configure PATH
 - Ensure `~/go/bin` is in the user's `PATH`.
@@ -70,14 +92,21 @@ Clone, build, and **clean up** the relevant VM from source:
 Run:
 - `weave version`
 - `initiad version`
-- `minitiad version` (Verify it matches the chosen VM)
+- `minitiad version --long | rg '^(name|server_name|version|commit):'`
+
+Required VM match:
+- **EVM track:** `name: minievm`
+- **Move track:** `name: minimove`
+- **Wasm track:** verify the reported `name` matches the Wasm VM you built
+
+Do not treat a successful `minitiad version` command by itself as sufficient verification. The binary on `PATH` may still be from a different VM track.
 
 ## Opinionated Defaults
 
 | Area | Default | Notes |
 |---|---|---|
 | VM | `evm` | Use `move`/`wasm` only when requested |
-| Move Version | `2.1` | Uses `minitiad move build`. `edition = "2024.alpha"` warnings are safe to ignore. |
+| Move Version | `2.1` | Uses `minitiad move build`. Prefer omitting `edition` from `Move.toml` unless a specific compiler version requires it. |
 | Network | `testnet` | Use `mainnet` only when explicitly requested |
 | Frontend (EVM VM) | wagmi + viem JSON-RPC | Default for pure EVM apps |
 | Frontend (Move/Wasm) | `@initia/interwovenkit-react`| Use when InterwovenKit features are required |
@@ -152,6 +181,8 @@ Run:
 - You MUST NOT export raw private keys from the keyring.
 - **Move Development (Building for Publish)**: Before publishing, you MUST rebuild the module using the intended deployer's **Hex** address: `minitiad move build --named-addresses <name>=0x<hex_addr>`.
 - **Move Dependency Resolution**: If `InitiaStdlib` fails to resolve, use: `{ git = "https://github.com/initia-labs/movevm.git", subdir = "precompile/modules/initia_stdlib", rev = "main" }`.
+- **Move Package Scaffolding**: `minitiad move new <NAME>` can write the package into the current working directory instead of creating a sibling directory. If the user wants a specific folder such as `blockforge/`, create and enter that folder first before running `minitiad move new`.
+- **Move Clean (Non-Interactive Shells)**: `minitiad move clean` may prompt for confirmation and panic without a TTY. In automated workflows, remove the package `build/` directory directly if a clean rebuild is required.
 - For EVM deployment, use `minitiad tx evm create` with `--from`.
 - Extract bytecode from Foundry artifacts using `jq`; ensure NO `0x` prefix and NO trailing newlines in `.bin` files.
 - If a tool requires a private key, find an alternative workflow using Initia CLI or `InterwovenKit`.
@@ -242,6 +273,7 @@ Run:
 
 ### Move REST Queries (CRITICAL)
 - When querying Move contract state using the `RESTClient` (e.g., `rest.move.view`), the module address MUST be in **bech32** format.
+- When querying Move resources using `rest.move.resource`, the **resource owner** remains bech32, but the **struct tag module address MUST be hex** (`0x...::module::Struct`). Do NOT build a struct tag with a bech32 module address.
 - **Address Arguments**: Address arguments in `args` MUST be converted to hex, stripped of `0x`, **padded to 64 chars** (32 bytes), and then Base64-encoded.
 - **Example Implementation**:
   ```javascript
@@ -251,7 +283,13 @@ Run:
   ).toString('base64');
   const res = await rest.move.view(mod_bech32, mod_name, func_name, [], [b64Addr]);
   ```
+- **Resource Query Example**:
+  ```javascript
+  const structTag = `${AccAddress.toHex(moduleBech32)}::items::Inventory`;
+  const res = await rest.move.resource(walletBech32, structTag);
+  ```
 - **Response Parsing**: The response from `rest.move.view` is a `ViewResponse` object; you MUST parse `JSON.parse(res.data)` to access the actual values.
+- **Missing Resource Handling**: For first-use state such as inventories, a resource may not exist yet. Treat a "not found" response from `rest.move.resource` as a valid zero/default state instead of surfacing it as a hard failure.
 - **Troubleshooting (400 Bad Request)**: If `rest.move.view` returns a 400 error, it is almost ALWAYS because:
   1. The module address is not bech32.
   2. The address arguments in `args` are not correctly hex-padded-base64 encoded.

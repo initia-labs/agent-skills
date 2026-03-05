@@ -125,7 +125,7 @@ Add `initia_std::oracle` to Move contracts or use `ISlinky` in Solidity.
 ### Step 2: Auto-signing (Gaming/High-Frequency)
 Enable the `autoSign` feature in the frontend for a web2-like UX.
 - **Prompt:** "Enable auto-signing in my React frontend for the 'mint' action."
-- **Action:** Use `autoSign.enable(chainId)` from `useInterwovenKit`.
+- **Action:** Use `autoSign.enable(chainId, { permissions: ["/initia.move.v1.MsgExecute"] })` from `useInterwovenKit`, then submit gameplay txs with `autoSign: true` and `feeDenom`.
 
 ### Step 3: Indexer Integration (Rich Data)
 Use the `indexerUrl` for querying NFTs and transaction history.

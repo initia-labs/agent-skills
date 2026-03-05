@@ -112,7 +112,7 @@ Avoid hard-coded version matrices in this skill.
     - Enable: `await autoSign.enable(chainId)`
     - Disable: `await autoSign.disable(chainId)`
     - **Session Wallet Fix**: You MUST include `bech32_prefix` (e.g., `bech32_prefix: "init"`) as a top-level field in your `customChain` object to avoid derivation `TypeError`.
-    - **Headless Flow**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include an explicit `feeDenom` (e.g., `feeDenom: "umin"`) in the transaction request.
+    - **Headless Flow**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include `autoSign: true` and an explicit `feeDenom` (e.g., `feeDenom: "umin"`) in the transaction request.
 13. **Chain Stability (CRITICAL)**: To avoid "Chain not found" or "URL not found" errors, the `customChain.apis` object MUST include `rpc`, `rest`, AND `indexer` (even if indexer is a placeholder).
 
 ## Provider Setup (Current Baseline)
@@ -391,15 +391,14 @@ Use this structure for a professional, centered landing page.
 
 ## Transaction Patterns
 
-### Move Contract Execution (`requestTxBlock` flow)
+### Move Contract Execution (`requestTxSync` flow for local appchains)
 
 ```tsx
 import { useInterwovenKit } from "@initia/interwovenkit-react";
-import { bcs } from "@initia/initia.js";
 import { MsgExecute } from "@initia/initia.proto/initia/move/v1/tx";
 
 export function useGameActions() {
-  const { initiaAddress, requestTxBlock } = useInterwovenKit();
+  const { initiaAddress, requestTxSync } = useInterwovenKit();
 
   const mintShard = async (moduleAddress: string) => {
     if (!initiaAddress) return;
@@ -408,15 +407,18 @@ export function useGameActions() {
       typeUrl: "/initia.move.v1.MsgExecute",
       value: MsgExecute.fromPartial({
         sender: initiaAddress,
-        moduleAddress,
+        moduleAddress, // bech32
         moduleName: "items",
-        functionName: "mint_shards",
-        args: [bcs.u64().serialize(1).toBytes()],
+        functionName: "mint_shard",
+        args: [],
         typeArgs: [],
       }),
     }];
 
-    return requestTxBlock({ msgs: messages });
+    return requestTxSync({
+      chainId: "game-1",
+      messages,
+    });
   };
 
   return { mintShard };
@@ -594,9 +596,18 @@ import { MsgExecute } from "@initia/initia.proto/initia/move/v1/tx";
 const rest = new RESTClient("http://localhost:1317", { chainId: "mygame-1" });
 
 // Prefer querying resources directly for state
-export async function queryInventory(moduleAddress: string, walletAddress: string) {
-  const structTag = `${moduleAddress}::items::Inventory`;
-  return rest.move.resource(walletAddress, structTag);
+export async function queryInventory(moduleAddressBech32: string, walletAddress: string) {
+  const structTag = `${AccAddress.toHex(moduleAddressBech32)}::items::Inventory`;
+
+  try {
+    return await rest.move.resource(walletAddress, structTag);
+  } catch (error) {
+    const message = String(error?.response?.data?.message || error?.message || "");
+    if (message.includes("not found")) {
+      return { type: structTag, data: { shards: "0", relics: "0" } };
+    }
+    throw error;
+  }
 }
 
 // CosmWasm query via REST
@@ -646,6 +657,7 @@ export function getHexAddress(address: string) {
 - **View function 400/500 errors**: Ensure arguments are correctly typed strings (e.g., `address:init1...`) and parameters match Move signature exactly. Prefer `resource()` queries for simple state.
   - **Move view 400 Fix**: Address arguments MUST be hex strings padded to exactly **64 characters** (32 bytes) before Base64 encoding.
   - **Move view 500 Fix**: If a view function fails with 500 because a resource doesn't exist yet, ALWAYS wrap the call in a `.catch()` to return default values (e.g., `["0", "0"]`).
+- **Move resource struct tags**: `rest.move.resource(wallet, structTag)` requires the wallet address in bech32, but the struct tag itself must use the module's hex address (`0x...::items::Inventory`). Using `init1...::items::Inventory` will fail with `invalid struct tag`.
   - **Move state update delay**: After a transaction, there is a short delay before the REST API reflects the new state. ALWAYS include a 2-second delay (`setTimeout`) before refreshing the inventory or state.
 - **Unstyled Modal**: Ensure `styles.css` is imported AND `injectStyles(InterwovenKitStyles)` is called in `main.jsx`.
 
