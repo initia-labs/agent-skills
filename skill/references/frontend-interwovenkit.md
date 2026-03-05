@@ -92,12 +92,12 @@ Avoid hard-coded version matrices in this skill.
 
 - Install latest compatible package versions unless the user asks to pin.
 - Keep `@initia/interwovenkit-react`, `wagmi`, and `viem` aligned to peer dependency expectations.
-- **IMPORTANT**: If using Vite, you MUST install `vite-plugin-node-polyfills` and add it to `vite.config.js` to ensure `@initia/initia.js` works in the browser.
+- **IMPORTANT**: If using Vite, you MUST install `vite-plugin-node-polyfills` and add it to `vite.config.js` to ensure `@initia/initia.js` works in the browser. Also add `resolve.dedupe` for `react`, `react-dom`, `wagmi`, `@tanstack/react-query`, and `viem`.
 
 ## Implementation Checklist
 
 1. Install required dependencies + polyfills (`buffer`, `util`, `vite-plugin-node-polyfills`).
-2. Configure Vite polyfills if applicable.
+2. Configure Vite polyfills and `resolve.dedupe` (`react`, `react-dom`, `wagmi`, `@tanstack/react-query`, `viem`) if applicable.
 3. Set up `window.Buffer` and `window.process` in `main.jsx` before other imports.
 4. Set up providers in order: `WagmiProvider` -> `QueryClientProvider` -> `InterwovenKitProvider`.
 5. For custom appchains, provide a complete `customChain` object including `rpc`, `rest`, and a placeholder `indexer`. Pass BOTH `customChain={customChain}` AND `customChains={[customChain]}` to the provider.
@@ -652,8 +652,8 @@ export function getHexAddress(address: string) {
   - **Fix**: wait a short delay before refreshing, or poll until the new state appears.
 
 - **Buffer is not defined**: Initia.js uses Node.js globals. Use `vite-plugin-node-polyfills` or manual global assignment.
-- **Invalid hook call after linking local InterwovenKit**: This usually means duplicate React runtimes from symlinked package dependencies.
-  - **Fix**: In `vite.config.js`, add `resolve.dedupe: ["react", "react-dom"]` and alias both to the app's `node_modules` copies. Then clear Vite cache (`rm -rf node_modules/.vite*`) and restart dev server.
+- **WagmiProviderNotFoundError / Invalid hook call in Vite**: This usually means duplicated provider modules in the Vite dependency graph.
+  - **Fix**: In `vite.config.js`, add `resolve.dedupe: ["react", "react-dom", "wagmi", "@tanstack/react-query", "viem"]`, then restart the dev server (clearing `node_modules/.vite*` if needed).
 - **switchChain is not a function**: `switchChain` is NOT exported from `useInterwovenKit`. Change chain context by setting the `defaultChainId` in `InterwovenKitProvider` or by using `openBridge` to move assets between specific chains.
 - **Chain not found**: Ensure `customChain` AND `customChains: [customChain]` are passed to `InterwovenKitProvider`. Ensure `rpc`, `rest`, AND `indexer` are present in `customChain.apis`.
 - **URL not found**: Ensure `rpc`, `rest`, AND `indexer` are present in `customChain.apis`.

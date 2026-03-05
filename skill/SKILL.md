@@ -195,7 +195,7 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
 - **[ALL-VM][SECURITY] Private Key Handling**: If a tool requires a private key, find an alternative workflow using Initia CLI or `InterwovenKit`.
 
 ### Frontend Requirements (ADDITIONAL)
-- **Polyfills**: Use `vite-plugin-node-polyfills` in `vite.config.js` with `globals: { Buffer: true, process: true }`. If using manual polyfills, define `Buffer` and `process` global polyfills at the TOP of `main.jsx`.
+- **Polyfills**: Use `vite-plugin-node-polyfills` in `vite.config.js` with `globals: { Buffer: true, process: true }`. Also set `resolve.dedupe` to `['react', 'react-dom', 'wagmi', '@tanstack/react-query', 'viem']` to avoid provider context splits in Vite. If using manual polyfills, define `Buffer` and `process` global polyfills at the TOP of `main.jsx`.
   ```javascript
   import { Buffer } from "buffer";
   window.Buffer = Buffer;
@@ -270,10 +270,12 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
   - **Frontend**: Multiply by $10^{18}$ (e.g., `parseUnits(amount, 18)`).
   - **CLI**: You MUST manually scale the value. For "100 tokens", use `100000000000000000000GAS` (100 + 18 zeros) in the `bank send` command.
 - **[EVM][FRONTEND] Human-Readable UI**: ALWAYS use `formatUnits(balance, 18)` from `viem` to display EVM balances. NEVER display raw base units in the UI.
+- **[EVM][FRONTEND][DEV] `parseEther` / `formatEther` Usage**: `parseEther` and `formatEther` are valid shorthand ONLY when the chain token uses exactly 18 decimals. If decimals might vary, use `parseUnits(amount, decimals)` and `formatUnits(balance, decimals)` from runtime config.
 
 ### EVM Queries & Transactions (CRITICAL)
 - **[EVM][FRONTEND] ABI Sync**: Treat compiled ABI/function names as the source of truth. Do NOT assume names like `getMyBalance`; confirm names/signatures from the generated artifact (for example `out/<Contract>.sol/<Contract>.json`) before wiring frontend `encodeFunctionData` calls.
 - **[EVM][RPC] State Queries**: Prefer standard JSON-RPC `eth_call` over `RESTClient` for EVM state queries to avoid property-undefined errors.
+- **[EVM][FRONTEND][RPC] Read Path Provider**: For read-only EVM queries (`eth_call`), use a configured JSON-RPC endpoint (for example `VITE_JSON_RPC_URL`) instead of relying on injected wallet providers (`window.ethereum`). This avoids "EVM wallet provider not found" failures when no EVM extension is injected.
 - **[EVM][RPC] Address Conversion**: When querying EVM state (e.g., `eth_call`), ALWAYS convert the bech32 address to hex using `AccAddress.toHex(addr)` and ensure the hex address is lowercased.
 - **[EVM][CLI] Sender Format**: `minitiad query evm call` expects a **bech32** sender (`init1...`) as the first argument.
 - **[EVM][CLI] Query Output Field**: `minitiad query evm call -o json` returns the call result under `.response` (hex string).
