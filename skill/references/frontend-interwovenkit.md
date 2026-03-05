@@ -1,5 +1,7 @@
 # Frontend (InterwovenKit)
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 ## Table of Contents
 
 1. Intake Questions
@@ -459,7 +461,7 @@ export function useBankActions(contractAddress: string) {
 
     return requestTxBlock({
       chainId: "<INSERT_APPCHAIN_ID_HERE>", // Strongly recommended for appchains
-      msgs: messages
+      messages
     });
   };
 
@@ -535,7 +537,7 @@ When interacting with an EVM appchain:
 1. **Querying (`eth_call` / `ethers`)**: Use the **hex address** (`0x...`) for the `from` or contract view parameters. You MUST convert a bech32 address using `AccAddress.toHex(address)` from `@initia/initia.js`.
 2. **Transacting (`MsgCall`)**: Use the **bech32 address** (`init1...`) for the `sender` field in the message payload. The `contractAddr` MUST be **hex** (`0x...`).
 
-- **Address Conversion (Hex)**:
+- **[EVM][RPC] Address Conversion (Hex)**:
   ```javascript
   import { AccAddress } from "@initia/initia.js";
   import { ethers } from "ethers";
@@ -551,11 +553,11 @@ When interacting with an EVM appchain:
   };
   ```
 
-- **MsgCall Requirements**: When passing a raw object (not using `MsgCall.fromPartial`), you MUST use **camelCase** for the fields (e.g., `contractAddr`, `accessList`, `authList`) and ensure **both** the address and input have the `0x` prefix. You MUST also include `accessList: []` and `authList: []` as empty arrays to avoid Amino conversion errors.
+- **[EVM][INTERWOVENKIT] MsgCall Requirements**: When passing a raw object (not using `MsgCall.fromPartial`), you MUST use **camelCase** for the fields (e.g., `contractAddr`, `accessList`, `authList`) and ensure **both** the address and input have the `0x` prefix. You MUST also include `accessList: []` and `authList: []` as empty arrays to avoid Amino conversion errors.
 
 - **Note**: If `contractAddr` is passed as hex but still fails with "empty address string", try explicitly casting it: `AccAddress.fromHex(CONTRACT_ADDRESS.replace('0x', ''))`. However, the standard `0x...` hex string is usually preferred for `minievm`.
 
-## Move-Specific: View Function Argument Encoding
+## [MOVE][REST] View Function Argument Encoding
 
 When calling Move view functions using `rest.move.view`, address arguments MUST be formatted as 32-byte padded hex strings and then Base64 encoded. Failure to do so will result in `400 Bad Request` errors.
 
@@ -625,26 +627,28 @@ export function getHexAddress(address: string) {
 
 ## Gotchas
 
-- **EVM: Incorrect typeUrl**: For EVM contract calls via `requestTxBlock`, the `typeUrl` usually follows the pattern `/minievm.evm.v1.MsgCall` or `/initia.evm.v1.MsgCall`.
+- **[EVM][INTERWOVENKIT] Incorrect typeUrl**: For EVM contract calls via `requestTxBlock`, the `typeUrl` usually follows the pattern `/minievm.evm.v1.MsgCall` or `/initia.evm.v1.MsgCall`.
   - **Fix**: Check your appchain's module name (often `minievm` on rollups) or use `../scripts/verify-appchain.sh` to see the module registry.
 
-- **EVM: MsgCall Value Type**: The `value` field in `MsgCall` (for sending native tokens) MUST be a string representing the amount in base units (wei).
+- **[EVM][INTERWOVENKIT] MsgCall Value Type**: The `value` field in `MsgCall` (for sending native tokens) MUST be a string representing the amount in base units (wei).
   - **Fix**: Use `parseEther(amount).toString()` to ensure it's a string.
+- **[EVM][INTERWOVENKIT] `requestTxBlock` `.map` TypeError**: If you see `Cannot read properties of undefined (reading 'map')`, you likely passed `msgs` instead of `messages`.
+  - **Fix**: Always call `requestTxBlock({ chainId, messages: [...] })`.
 
-- **EVM: URL not found error**: This error in the frontend usually occurs when the `customChain` config is missing the `json-rpc` entry in `apis`.
+- **[EVM][INTERWOVENKIT] URL not found error**: This error in the frontend usually occurs when the `customChain` config is missing the `json-rpc` entry in `apis`.
   - **Fix**: Add `"json-rpc": [{ address: "http://localhost:8545" }]` to your `customChain.apis`.
 
-- **EVM: Ethers v6 Syntax**: Many modern InterwovenKit projects pull in `ethers` v6, which has breaking changes from v5.
+- **[EVM][FRONTEND] Ethers v6 Syntax**: Many modern InterwovenKit projects pull in `ethers` v6, which has breaking changes from v5.
   - **Fix**: Use `new ethers.Interface()` instead of `ethers.utils.Interface`, and `ethers.parseEther()` instead of `ethers.utils.parseEther()`.
 
-- **Wasm: Query 400 Bad Request**: `smartContractState` expects the query to be a Base64-encoded string.
+- **[WASM][REST] Query 400 Bad Request**: `smartContractState` expects the query to be a Base64-encoded string.
   - **Fix**: `const queryData = Buffer.from(JSON.stringify(query)).toString("base64"); rest.wasm.smartContractState(addr, queryData);`
-- **Wasm: Query response shape is unexpected**: `smartContractState` often returns the decoded payload directly, not under `res.data`.
+- **[WASM][REST] Query response shape is unexpected**: `smartContractState` often returns the decoded payload directly, not under `res.data`.
   - **Fix**: Inspect the returned object first and prefer direct access like `res.messages` when the contract query returns `{ messages: [...] }`.
 
-- **Wasm: Transaction "invalid payload" / map error**: `MsgExecuteContract` expects the `msg` field as bytes (`Uint8Array`). If `requestTxBlock` fails with a `.map()` error, try using `requestTxSync` with the `messages` (plural) field.
+- **[WASM][INTERWOVENKIT] Transaction "invalid payload" / map error**: `MsgExecuteContract` expects the `msg` field as bytes (`Uint8Array`). If `requestTxBlock` fails with a `.map()` error, try using `requestTxSync` with the `messages` (plural) field.
   - **Fix**: Use `new TextEncoder().encode(JSON.stringify(msg))` for the `msg` field.
-- **Wasm: Query still shows old state right after post**: local REST/indexer visibility can lag briefly behind a successful `requestTxSync`.
+- **[WASM][REST] Query still shows old state right after post**: local REST/indexer visibility can lag briefly behind a successful `requestTxSync`.
   - **Fix**: wait a short delay before refreshing, or poll until the new state appears.
 
 - **Buffer is not defined**: Initia.js uses Node.js globals. Use `vite-plugin-node-polyfills` or manual global assignment.
@@ -655,10 +659,10 @@ export function getHexAddress(address: string) {
 - **URL not found**: Ensure `rpc`, `rest`, AND `indexer` are present in `customChain.apis`.
 - **LCDClient or useRest is not an export**: These hooks are not currently exported in `@initia/interwovenkit-react` v2.4.0. Use `RESTClient` from `@initia/initia.js` instead.
 - **View function 400/500 errors**: Ensure arguments are correctly typed strings (e.g., `address:init1...`) and parameters match Move signature exactly. Prefer `resource()` queries for simple state.
-  - **Move view 400 Fix**: Address arguments MUST be hex strings padded to exactly **64 characters** (32 bytes) before Base64 encoding.
-  - **Move view 500 Fix**: If a view function fails with 500 because a resource doesn't exist yet, ALWAYS wrap the call in a `.catch()` to return default values (e.g., `["0", "0"]`).
-- **Move resource struct tags**: `rest.move.resource(wallet, structTag)` requires the wallet address in bech32, but the struct tag itself must use the module's hex address (`0x...::items::Inventory`). Using `init1...::items::Inventory` will fail with `invalid struct tag`.
-  - **Move state update delay**: After a transaction, there is a short delay before the REST API reflects the new state. ALWAYS include a 2-second delay (`setTimeout`) before refreshing the inventory or state.
+  - **[MOVE][REST] view 400 Fix**: Address arguments MUST be hex strings padded to exactly **64 characters** (32 bytes) before Base64 encoding.
+  - **[MOVE][REST] view 500 Fix**: If a view function fails with 500 because a resource doesn't exist yet, ALWAYS wrap the call in a `.catch()` to return default values (e.g., `["0", "0"]`).
+- **[MOVE][REST] resource struct tags**: `rest.move.resource(wallet, structTag)` requires the wallet address in bech32, but the struct tag itself must use the module's hex address (`0x...::items::Inventory`). Using `init1...::items::Inventory` will fail with `invalid struct tag`.
+  - **[MOVE][REST] state update delay**: After a transaction, there is a short delay before the REST API reflects the new state. ALWAYS include a 2-second delay (`setTimeout`) before refreshing the inventory or state.
 - **Unstyled Modal**: Ensure `styles.css` is imported AND `injectStyles(InterwovenKitStyles)` is called in `main.jsx`.
 
 - **Error: must contain at least one message**: This often occurs if `requestTxBlock` is called without a `chainId` or with a `chainId` that the node doesn't recognize (e.g., trying to send an L2-only message to L1).

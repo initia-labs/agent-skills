@@ -1,5 +1,7 @@
 # Troubleshooting Playbook
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 ## Table of Contents
 
 1. Weave / Rollup
@@ -113,13 +115,13 @@ Fix:
 Checks:
 - Wallet connected and `initiaAddress` is present.
 - **SDK Usage**: `LCDClient` is not an export in the current `initia.js`. Use `RESTClient` instead.
-- **Move View Call 500 Error (CRITICAL)**: If `rest.move.view` returns a 500 error, it is almost always due to **incorrect address encoding** in the `args` array.
+- **[MOVE][REST] View Call 500 Error (CRITICAL)**: If `rest.move.view` returns a 500 error, it is almost always due to **incorrect address encoding** in the `args` array.
   - **Incorrect**: Using `initiaAddress` directly or just stripping `0x`.
   - **Fix**: You MUST convert bech32 to hex using `AccAddress.toHex(addr)` first, then pad to 64 chars, then base64 encode.
-- **View Function 400/500**: Ensure Move arguments are correctly prefixed (e.g., `address:init1...`).
-- **State Reliability**: Prefer `rest.move.resource()` over `viewFunction()` for querying simple contract state (like an Inventory struct).
-- **EVM Simulation (Hex Prefix)**: `minitiad tx evm call` and `eth_call` often fail if the input hex or contract address is missing the `0x` prefix.
-- **EVM Simulation (Address Format)**: Simulation can fail with "empty address string" if the message fields (e.g., `contractAddr`) don't match the expected casing (camelCase vs snake_case).
+- **[MOVE][REST] View Function 400/500**: Ensure Move arguments are correctly prefixed (e.g., `address:init1...`).
+- **[MOVE][REST] State Reliability**: Prefer `rest.move.resource()` over `viewFunction()` for querying simple contract state (like an Inventory struct).
+- **[EVM][CLI] Simulation (Hex Prefix)**: `minitiad tx evm call` and `eth_call` often fail if the input hex or contract address is missing the `0x` prefix.
+- **[EVM][INTERWOVENKIT] Simulation (Address Format)**: Simulation can fail with "empty address string" if the message fields (e.g., `contractAddr`) don't match the expected casing (camelCase vs snake_case).
 - For minievm calls via InterwovenKit, use `typeUrl: "/minievm.evm.v1.MsgCall"` and ensure fields are **camelCase** (`contractAddr`, `accessList`) if using a raw object.
 
 ### 9. NPM install interrupted / dependency state corrupted
@@ -141,10 +143,10 @@ npm install
 Checks:
 - Confirm VM target first (`evm`, `move`, `wasm`).
 - Confirm toolchain and dependency set for that VM.
-- **Move 2.0 Compatibility:** Projects default to Move 2.0 (`edition = "2024.alpha"`). If you see "unsupported language construct", ensure your `minitiad` version is `v1.1.10` or higher. You can update it by running `make install` in the `minimove` repository.
-- **Hex Addresses:** `Move.toml` requires addresses in hex format (`0x...`). Use `../scripts/to_hex.py <address>` to convert Bech32 addresses.
-- **Library Naming:** Use `initia_std` (not `initia_stdlib`) when importing core modules: `use initia_std::table;`.
-- **Receiver Syntax:** Not all standard library modules support receiver functions yet. If `account.address_of()` fails, use the classic `signer::address_of(account)`.
+- **[MOVE][BUILD] 2.0 Compatibility:** Projects default to Move 2.0 (`edition = "2024.alpha"`). If you see "unsupported language construct", ensure your `minitiad` version is `v1.1.10` or higher. You can update it by running `make install` in the `minimove` repository.
+- **[MOVE][DEV] Hex Addresses:** `Move.toml` requires addresses in hex format (`0x...`). Use `../scripts/to_hex.py <address>` to convert Bech32 addresses.
+- **[MOVE][DEV] Library Naming:** Use `initia_std` (not `initia_stdlib`) when importing core modules: `use initia_std::table;`.
+- **[MOVE][DEV] Receiver Syntax:** Not all standard library modules support receiver functions yet. If `account.address_of()` fails, use the classic `signer::address_of(account)`.
 
 Actions:
 - Re-scaffold using:

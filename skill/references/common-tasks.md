@@ -1,5 +1,7 @@
 # Common Tasks (Funding, Addresses, Precision)
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 ## Table of Contents
 
 1. Account & Key Management
@@ -46,7 +48,7 @@ Always verify the balance of the gas-station account before attempting to fund a
 
 Initia uses different address formats depending on the layer and VM:
 - **L1/L2 (Bech32):** `init1...` (Primary format for CLI and Move/Wasm)
-- **EVM (Hex):** `0x...` (Primary format for Solidity and JSON-RPC)
+- **[EVM][RPC] (Hex):** `0x...` (Primary format for Solidity and JSON-RPC)
 
 ### CLI Conversion
 Use these scripts to convert between formats:

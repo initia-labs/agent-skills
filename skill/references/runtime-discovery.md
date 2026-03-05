@@ -1,5 +1,7 @@
 # Runtime Discovery
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 Use this flow whenever VM, `chain_id`, or endpoint values are unknown.
 
 ## Quick Verification

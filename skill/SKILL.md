@@ -36,15 +36,15 @@ Then ask a context-specific confirmation:
 When the user asks to "set up my environment for the [Track] track" (Step 5), execute this sequence:
 
 ### 1. Identify Track Requirements & Prerequisites
-- **Move Track:** `minimove` repo -> `minitiad`. Requires `go`.
-- **EVM Track:** `minievm` repo -> `minitiad`. Requires `go`, `foundry`.
-- **Wasm Track:** `miniwasm` repo -> `minitiad`. Requires `go`, `rust/cargo`.
+- **[MOVE] Track:** `minimove` repo -> `minitiad`. Requires `go`.
+- **[EVM] Track:** `minievm` repo -> `minitiad`. Requires `go`, `foundry`.
+- **[WASM] Track:** `miniwasm` repo -> `minitiad`. Requires `go`, `rust/cargo`.
 
 ### 2. Check System Prerequisites
 Check prerequisites by selected track (always check `docker` for tool installer compatibility):
-- **Move Track:** `go`, `docker`
-- **EVM Track:** `go`, `docker`, `foundry`
-- **Wasm Track:** `go`, `docker`, `cargo`
+- **[MOVE] Track:** `go`, `docker`
+- **[EVM] Track:** `go`, `docker`, `foundry`
+- **[WASM] Track:** `go`, `docker`, `cargo`
 
 For each required tool in the selected track:
 - If **missing**: Inform the user and **propose** the installation command (e.g., "I see you're missing Cargo. Would you like me to install it for you using `rustup`?").
@@ -60,21 +60,21 @@ Clone, build, and **clean up** the relevant VM from source.
 
 Run the build from the repository directory itself. Do not rely on shell-chained `cd ... && make install` examples if your execution environment manages working directories separately.
 
-- **Move:**
+- **[MOVE]:**
   ```sh
   git clone --depth 1 https://github.com/initia-labs/minimove.git /tmp/minimove
   cd /tmp/minimove
   make install
   rm -rf /tmp/minimove
   ```
-- **EVM:**
+- **[EVM]:**
   ```sh
   git clone --depth 1 https://github.com/initia-labs/minievm.git /tmp/minievm
   cd /tmp/minievm
   make install
   rm -rf /tmp/minievm
   ```
-- **Wasm:**
+- **[WASM]:**
   ```sh
   git clone --depth 1 https://github.com/initia-labs/miniwasm.git /tmp/miniwasm
   cd /tmp/miniwasm
@@ -95,9 +95,9 @@ Run:
 - `minitiad version --long | rg '^(name|server_name|version|commit):'`
 
 Required VM match:
-- **EVM track:** `name: minievm`
-- **Move track:** `name: minimove`
-- **Wasm track:** verify the reported `name` matches the Wasm VM you built
+- **[EVM] track:** `name: minievm`
+- **[MOVE] track:** `name: minimove`
+- **[WASM] track:** verify the reported `name` matches the Wasm VM you built
 
 Do not treat a successful `minitiad version` command by itself as sufficient verification. The binary on `PATH` may still be from a different VM track.
 
@@ -117,6 +117,12 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
 | Denoms | `GAS` (EVM) / `umin` (Move) | Typical defaults for test/internal rollups |
 
 ## Strict Constraints (NEVER VIOLATE)
+
+### Tagging Standard
+- Use VM-first tags for VM-specific guidance: `[EVM]`, `[MOVE]`, `[WASM]`, `[ALL-VM]`.
+- Add optional context tags after VM: `[CLI]`, `[DEV]`, `[REST]`, `[RPC]`, `[FRONTEND]`, `[INTERWOVENKIT]`, `[BUILD]`, `[TEST]`.
+- Prefer stacked tags (example: `[EVM][CLI]`) over combined tags (for example, avoid `[EVM CLI]`).
+- Required workflow for any skill markdown edit: run `scripts/lint-tags.sh` before changes and run it again before handoff.
 
 ### Initia Usernames (STRICTLY OPT-IN)
 - You MUST NOT implement username support in any scaffold, component, or code snippet unless explicitly requested (e.g., "add username support").
@@ -175,17 +181,18 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
 - **Runtime Config Sync**: If the frontend depends on a deployed contract address, you MUST wire the resolved live address into runtime config (for example, `.env` / `VITE_*`) instead of leaving only placeholders or examples. If `.env` values are added or changed for a running Vite app, tell the user to restart the dev server.
 - **Hook Exports**: `useInterwovenKit` exports `initiaAddress`, `address`, `username`, `openConnect`, `openWallet`, `openBridge`, `requestTxBlock`, `requestTxSync`, and `autoSign`.
 - **Transaction Guards**: Before calling `requestTxBlock` or `requestTxSync`, you MUST verify that `initiaAddress` is defined.
-- **Sender Address (ALL VMs)**: In Initia, the `sender` field for all message types (`MsgCall`, `MsgExecute`, `MsgExecuteContract`) MUST be the Bech32 address. Use `initiaAddress` for this field to ensure compatibility across EVM, Move, and Wasm appchains. Using the hex `address` on an EVM chain for the `sender` field in a Cosmos-style message will cause an "empty address string" or "decoding bech32 failed" error.
+- **[ALL-VM] Sender Address**: In Initia, the `sender` field for all message types (`MsgCall`, `MsgExecute`, `MsgExecuteContract`) MUST be the Bech32 address. Use `initiaAddress` for this field to ensure compatibility across EVM, Move, and Wasm appchains. Using the hex `address` on an EVM chain for the `sender` field in a Cosmos-style message will cause an "empty address string" or "decoding bech32 failed" error.
 
 ### Security & Key Protection (STRICTLY ENFORCED)
 - You MUST NOT export raw private keys from the keyring.
-- **Move Development (Building for Publish)**: Before publishing, you MUST rebuild the module using the intended deployer's **Hex** address: `minitiad move build --named-addresses <name>=0x<hex_addr>`.
-- **Move Dependency Resolution**: If `InitiaStdlib` fails to resolve, use: `{ git = "https://github.com/initia-labs/movevm.git", subdir = "precompile/modules/initia_stdlib", rev = "main" }`.
-- **Move Package Scaffolding**: `minitiad move new <NAME>` can write the package into the current working directory instead of creating a sibling directory. If the user wants a specific folder such as `blockforge/`, create and enter that folder first before running `minitiad move new`.
-- **Move Clean (Non-Interactive Shells)**: `minitiad move clean` may prompt for confirmation and panic without a TTY. In automated workflows, remove the package `build/` directory directly if a clean rebuild is required.
-- For EVM deployment, use `minitiad tx evm create` with `--from`.
-- Extract bytecode from Foundry artifacts using `jq`; ensure NO `0x` prefix and NO trailing newlines in `.bin` files.
-- If a tool requires a private key, find an alternative workflow using Initia CLI or `InterwovenKit`.
+- **[MOVE][DEV] Development (Building for Publish)**: Before publishing, you MUST rebuild the module using the intended deployer's **Hex** address: `minitiad move build --named-addresses <name>=0x<hex_addr>`.
+- **[MOVE][DEV] Dependency Resolution**: If `InitiaStdlib` fails to resolve, use: `{ git = "https://github.com/initia-labs/movevm.git", subdir = "precompile/modules/initia_stdlib", rev = "main" }`.
+- **[MOVE][DEV] Package Scaffolding**: `minitiad move new <NAME>` can write the package into the current working directory instead of creating a sibling directory. If the user wants a specific folder such as `blockforge/`, create and enter that folder first before running `minitiad move new`.
+- **[MOVE][DEV] Clean (Non-Interactive Shells)**: `minitiad move clean` may prompt for confirmation and panic without a TTY. In automated workflows, remove the package `build/` directory directly if a clean rebuild is required.
+- **[EVM][CLI] Deployment**: For EVM deployment, use `minitiad tx evm create` with `--from`.
+- **[EVM][CLI] Bytecode Extraction**: Extract bytecode from Foundry artifacts using `jq`; ensure NO `0x` prefix and NO trailing newlines in `.bin` files.
+- **[EVM][DEV][CLI] `tx evm create` Input Shape**: The positional argument to `minitiad tx evm create` is a **bytecode file path**. If you want to pass raw bytecode directly, use `--input 0x...`. Passing raw hex as the positional argument can fail with `file name too long`.
+- **[ALL-VM][SECURITY] Private Key Handling**: If a tool requires a private key, find an alternative workflow using Initia CLI or `InterwovenKit`.
 
 ### Frontend Requirements (ADDITIONAL)
 - **Polyfills**: Use `vite-plugin-node-polyfills` in `vite.config.js` with `globals: { Buffer: true, process: true }`. If using manual polyfills, define `Buffer` and `process` global polyfills at the TOP of `main.jsx`.
@@ -220,9 +227,9 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
   - **CRITICAL**: Do NOT attempt to destructure `networks` or `rest` from `useInterwovenKit`. These objects are NOT available in the hook. Always define your REST/RPC endpoints manually or via your own configuration.
 
 ### Transaction Message Flow (CRITICAL)
-- **Wasm**: ALWAYS include `chainId`. Prefer `requestTxSync`.
-  - **Payload Encoding**: `MsgExecuteContract` expects the `msg` field as bytes (**`Uint8Array`**). Use `new TextEncoder().encode(JSON.stringify(msg))`.
-- **Auto-Sign (Headless)**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include an explicit `feeDenom` (e.g., `feeDenom: "umin"`) AND the `autoSign: true` flag in the request:
+- **[WASM][INTERWOVENKIT] Transaction Envelope**: ALWAYS include `chainId`. Prefer `requestTxSync`.
+  - **[WASM][INTERWOVENKIT] Payload Encoding**: `MsgExecuteContract` expects the `msg` field as bytes (**`Uint8Array`**). Use `new TextEncoder().encode(JSON.stringify(msg))`.
+- **[ALL-VM][INTERWOVENKIT] Auto-Sign (Headless)**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include an explicit `feeDenom` (e.g., `feeDenom: "umin"`) AND the `autoSign: true` flag in the request:
   ```javascript
   await requestTxSync({ 
     chainId, 
@@ -230,51 +237,56 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
     messages: [...] 
   })
   ```
-- **EVM Sender (MsgCall)**: Use **bech32** address for `sender` in `MsgCall`, but **hex** for `contractAddr`. 
+- **[EVM] Sender (MsgCall)**: Use **bech32** address for `sender` in `MsgCall`, but **hex** for `contractAddr`. 
   - **Normalization**: ALWAYS lowercase the bech32 sender address to avoid "decoding bech32 failed" errors.
-- **EVM Payload (InterwovenKit)**: Use plain objects with `typeUrl: "/minievm.evm.v1.MsgCall"`. The actual message fields MUST be wrapped inside a `value` key.
+- **[EVM][INTERWOVENKIT] Payload**: Use plain objects with `typeUrl: "/minievm.evm.v1.MsgCall"`. The actual message fields MUST be wrapped inside a `value` key.
   - **Incorrect**: `{ typeUrl: "...", sender: "...", contractAddr: "..." }`
   - **Correct**: `{ typeUrl: "...", value: { sender: "...", contractAddr: "...", ... } }`
-- **EVM Field Naming**: Use **camelCase** for fields (`contractAddr`, `accessList`, `authList`) and include empty arrays for lists.
-- **Move MsgExecute**: Use **camelCase** for fields; `moduleAddress` MUST be **bech32**.
-  - **Mandatory Arrays (Move Specific)**: ALWAYS include `typeArgs: []` and `args: []` even if they are empty. Omitting these fields in a Move execution message will cause a `TypeError` (Cannot read properties of undefined reading 'length') during the Amino conversion process in the frontend.
+- **[EVM][INTERWOVENKIT] `requestTxBlock` Key**: ALWAYS use `messages` (plural), not `msgs`. Passing `msgs` can fail with `Cannot read properties of undefined (reading 'map')`.
+- **[EVM] Field Naming**: Use **camelCase** for fields (`contractAddr`, `accessList`, `authList`) and include empty arrays for lists.
+- **[MOVE][INTERWOVENKIT] MsgExecute Field Naming**: Use **camelCase** for fields; `moduleAddress` MUST be **bech32**.
+  - **[MOVE][INTERWOVENKIT] Mandatory Arrays**: ALWAYS include `typeArgs: []` and `args: []` even if they are empty. Omitting these fields in a Move execution message will cause a `TypeError` (Cannot read properties of undefined reading 'length') during the Amino conversion process in the frontend.
 
 ### Wasm REST Queries (CRITICAL)
-- When querying Wasm contract state using the `RESTClient` (e.g., `rest.wasm.smartContractState`), the query message MUST be a **Base64-encoded string**.
+- **[WASM][REST] Query Encoding**: When querying Wasm contract state using the `RESTClient` (e.g., `rest.wasm.smartContractState`), the query message MUST be a **Base64-encoded string**.
 - The query JSON and execute JSON MUST match the contract's Rust message schema exactly. Do NOT assume names like `all_messages` or specific field names such as `text` or `message`; for example, MemoBoard variants commonly use `get_messages` with `post_message: { message: ... }`, while other contracts may use different field names.
 - **Example Implementation**:
   ```javascript
   const queryData = Buffer.from(JSON.stringify({ get_messages: {} })).toString("base64");
   const res = await rest.wasm.smartContractState(CONTRACT_ADDR, queryData);
   ```
-- **Response Shape**: `smartContractState` commonly returns the decoded payload directly (for example `res.messages`) rather than nesting it under `res.data`. Do not assume a `.data` wrapper unless you have verified the concrete response shape.
-- **Method Name**: ALWAYS use `smartContractState`. Methods like `queryContractSmart` are NOT available in the Initia `RESTClient`.
-- **CLI Fallback**: If `minitiad query wasm contract-state smart <CONTRACT_ADDRESS> ...` fails with a Bech32 checksum error even though the address came from the instantiate event or `list-contract-by-code`, treat the chain-emitted address as the source of truth. Verify it with `minitiad query wasm list-contract-by-code <CODE_ID>` and continue with the REST endpoint path or `RESTClient` instead of blocking on the CLI parser.
+- **[WASM][REST] Response Shape**: `smartContractState` commonly returns the decoded payload directly (for example `res.messages`) rather than nesting it under `res.data`. Do not assume a `.data` wrapper unless you have verified the concrete response shape.
+- **[WASM][REST] Method Name**: ALWAYS use `smartContractState`. Methods like `queryContractSmart` are NOT available in the Initia `RESTClient`.
+- **[WASM][CLI] Fallback**: If `minitiad query wasm contract-state smart <CONTRACT_ADDRESS> ...` fails with a Bech32 checksum error even though the address came from the instantiate event or `list-contract-by-code`, treat the chain-emitted address as the source of truth. Verify it with `minitiad query wasm list-contract-by-code <CODE_ID>` and continue with the REST endpoint path or `RESTClient` instead of blocking on the CLI parser.
 
 ### Wasm Rust Testing (CRITICAL)
-- When writing unit tests for Wasm contracts, ALWAYS use `.as_str()` when comparing `cosmwasm_std::Addr` with a string literal or `String`. `Addr` does NOT implement `PartialEq<&str>` or `PartialEq<String>` directly.
+- **[WASM][TEST] Address Comparison**: When writing unit tests for Wasm contracts, ALWAYS use `.as_str()` when comparing `cosmwasm_std::Addr` with a string literal or `String`. `Addr` does NOT implement `PartialEq<&str>` or `PartialEq<String>` directly.
 - **Incorrect**: `assert_eq!("user1", value.sender);`
 - **Correct**: `assert_eq!("user1", value.sender.as_str());`
 
 ### Token Precision & Funding (EVM SPECIFIC)
-- **EVM Precision**: Assume standard EVM precision ($10^{18}$ base units) for all native tokens on EVM appchains (e.g., `GAS`).
-- **Funding Requests**: When a user asks for "N tokens" on an EVM chain:
+- **[EVM] Precision**: Assume standard EVM precision ($10^{18}$ base units) for all native tokens on EVM appchains (e.g., `GAS`).
+- **[EVM] Funding Requests**: When a user asks for "N tokens" on an EVM chain:
   - **Frontend**: Multiply by $10^{18}$ (e.g., `parseUnits(amount, 18)`).
   - **CLI**: You MUST manually scale the value. For "100 tokens", use `100000000000000000000GAS` (100 + 18 zeros) in the `bank send` command.
-- **Human-Readable UI**: ALWAYS use `formatUnits(balance, 18)` from `viem` to display EVM balances. NEVER display raw base units in the UI.
+- **[EVM][FRONTEND] Human-Readable UI**: ALWAYS use `formatUnits(balance, 18)` from `viem` to display EVM balances. NEVER display raw base units in the UI.
 
 ### EVM Queries & Transactions (CRITICAL)
-- **State Queries**: Prefer standard JSON-RPC `eth_call` over `RESTClient` for EVM state queries to avoid property-undefined errors.
-- **Address Conversion**: When querying EVM state (e.g., `eth_call`), ALWAYS convert the bech32 address to hex using `AccAddress.toHex(addr)` and ensure the hex address is lowercased.
-- **Calldata Encoding**: 
-  - **Frontend**: Prefer `viem` (e.g., `encodeFunctionData`) for generating contract `input` hex. 
-  - **CLI**: ALWAYS use `cast calldata` (e.g., `$(cast calldata "func(type)" arg)`) for generating contract `input` hex. Manual encoding (e.g., `printf`) is brittle and MUST be avoided.
-  - **Manual Padding**: If manual encoding is unavoidable, ensure `BigInt` values are converted to hex and padded to exactly 64 characters for `uint256` arguments.
+- **[EVM][FRONTEND] ABI Sync**: Treat compiled ABI/function names as the source of truth. Do NOT assume names like `getMyBalance`; confirm names/signatures from the generated artifact (for example `out/<Contract>.sol/<Contract>.json`) before wiring frontend `encodeFunctionData` calls.
+- **[EVM][RPC] State Queries**: Prefer standard JSON-RPC `eth_call` over `RESTClient` for EVM state queries to avoid property-undefined errors.
+- **[EVM][RPC] Address Conversion**: When querying EVM state (e.g., `eth_call`), ALWAYS convert the bech32 address to hex using `AccAddress.toHex(addr)` and ensure the hex address is lowercased.
+- **[EVM][CLI] Sender Format**: `minitiad query evm call` expects a **bech32** sender (`init1...`) as the first argument.
+- **[EVM][CLI] Query Output Field**: `minitiad query evm call -o json` returns the call result under `.response` (hex string).
+- **[EVM][CLI] Tx Lookup Timing**: Immediately after broadcast, `minitiad query tx <hash>` may briefly return `tx not found`; retry briefly before failing.
+- **[EVM][CLI] Calldata Encoding**: 
+  - **[EVM][FRONTEND] Preferred**: Prefer `viem` (e.g., `encodeFunctionData`) for generating contract `input` hex. 
+  - **[EVM][CLI] Preferred**: ALWAYS use `cast calldata` (e.g., `$(cast calldata "func(type)" arg)`) for generating contract `input` hex. Manual encoding (e.g., `printf`) is brittle and MUST be avoided.
+  - **[EVM][CLI] Manual Padding**: If manual encoding is unavoidable, ensure `BigInt` values are converted to hex and padded to exactly 64 characters for `uint256` arguments.
 
 ### Move REST Queries (CRITICAL)
-- When querying Move contract state using the `RESTClient` (e.g., `rest.move.view`), the module address MUST be in **bech32** format.
-- When querying Move resources using `rest.move.resource`, the **resource owner** remains bech32, but the **struct tag module address MUST be hex** (`0x...::module::Struct`). Do NOT build a struct tag with a bech32 module address.
-- **Address Arguments**: Address arguments in `args` MUST be converted to hex, stripped of `0x`, **padded to 64 chars** (32 bytes), and then Base64-encoded.
+- **[MOVE][REST] Module Address Format**: When querying Move contract state using the `RESTClient` (e.g., `rest.move.view`), the module address MUST be in **bech32** format.
+- **[MOVE][REST] Struct Tag Address Format**: When querying Move resources using `rest.move.resource`, the **resource owner** remains bech32, but the **struct tag module address MUST be hex** (`0x...::module::Struct`). Do NOT build a struct tag with a bech32 module address.
+- **[MOVE][REST] Address Arguments**: Address arguments in `args` MUST be converted to hex, stripped of `0x`, **padded to 64 chars** (32 bytes), and then Base64-encoded.
 - **Example Implementation**:
   ```javascript
   const b64Addr = Buffer.from(
@@ -288,12 +300,12 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
   const structTag = `${AccAddress.toHex(moduleBech32)}::items::Inventory`;
   const res = await rest.move.resource(walletBech32, structTag);
   ```
-- **Response Parsing**: The response from `rest.move.view` is a `ViewResponse` object; you MUST parse `JSON.parse(res.data)` to access the actual values.
-- **Missing Resource Handling**: For first-use state such as inventories, a resource may not exist yet. Treat a "not found" response from `rest.move.resource` as a valid zero/default state instead of surfacing it as a hard failure.
-- **Troubleshooting (400 Bad Request)**: If `rest.move.view` returns a 400 error, it is almost ALWAYS because:
+- **[MOVE][REST] Response Parsing**: The response from `rest.move.view` is a `ViewResponse` object; you MUST parse `JSON.parse(res.data)` to access the actual values.
+- **[MOVE][REST] Missing Resource Handling**: For first-use state such as inventories, a resource may not exist yet. Treat a "not found" response from `rest.move.resource` as a valid zero/default state instead of surfacing it as a hard failure.
+- **[MOVE][REST] Troubleshooting (400 Bad Request)**: If `rest.move.view` returns a 400 error, it is almost ALWAYS because:
   1. The module address is not bech32.
   2. The address arguments in `args` are not correctly hex-padded-base64 encoded.
-- **Auto-Sign (No message types configured)**: If `autoSign.enable` fails with "No message types configured", ensure:
+- **[MOVE][INTERWOVENKIT] Auto-Sign (No message types configured)**: If `autoSign.enable` fails with "No message types configured", ensure:
   1. `metadata.minitia.type` is set correctly (e.g., `minimove`, `minievm`).
   2. `defaultChainId` in `InterwovenKitProvider` matches your `customChain.chain_id`.
   3. `bech32_prefix` is present at the top level of `customChain`.
@@ -309,14 +321,14 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
    - **Balance**: Ensure the `from` account has enough of the *actual* native denom.
 5. **Scaffolding Cleanup**: Delete placeholder modules/contracts after scaffolding.
 6. **Appchain Health**: If RPC is down, attempt `weave rollup start -d` and verify with `scripts/verify-appchain.sh`.
-7. **Move Development: Acquires Annotation**: Every function that accesses global storage (using `borrow_global`, `borrow_global_mut`, `move_from`, or calling a function that does) MUST include the `acquires` annotation for that resource type.
-8. **Move Development: Reference Rules**: You MUST NOT return a reference (mutable or immutable) derived from a global resource (e.g., via `borrow_global_mut`) from a function unless it is passed as a parameter. Inline the logic or pass the resource as a parameter if needed.
-9. **Move Development: Syntax**: Place doc comments (`///`) **AFTER** attributes like `#[view]` or `#[test]`.
-10. **CLI: Move Publish**: The `minitiad tx move publish` command does NOT use a `--path` flag. Pass the path to the compiled `.mv` file as a positional argument: `minitiad tx move publish <path_to_file>.mv ...`.
-11. **Wasm Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
+7. **[MOVE][DEV] Acquires Annotation**: Every function that accesses global storage (using `borrow_global`, `borrow_global_mut`, `move_from`, or calling a function that does) MUST include the `acquires` annotation for that resource type.
+8. **[MOVE][DEV] Reference Rules**: You MUST NOT return a reference (mutable or immutable) derived from a global resource (e.g., via `borrow_global_mut`) from a function unless it is passed as a parameter. Inline the logic or pass the resource as a parameter if needed.
+9. **[MOVE][DEV] Syntax**: Place doc comments (`///`) **AFTER** attributes like `#[view]` or `#[test]`.
+10. **[MOVE][CLI] Publish**: The `minitiad tx move publish` command does NOT use a `--path` flag. Pass the path to the compiled `.mv` file as a positional argument: `minitiad tx move publish <path_to_file>.mv ...`.
+11. **[WASM][BUILD] Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
 12. **Visual Polish**: Prioritize sticky glassmorphism headers, centered app-card layouts, and clear visual hierarchy.
 13. **UX Excellence**: Feed ordering (newest first), input accessibility (above feed), and interactive feedback (hover/focus).
-14. **Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
+14. **[ALL-VM][INTERWOVENKIT] Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
 15. **Validation**: Run `scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
 
 ## Progressive Disclosure (Read When Needed)

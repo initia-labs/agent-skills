@@ -1,5 +1,7 @@
 # Frontend (EVM Direct RPC)
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 Use this path by default when VM is `evm` and the app only needs normal EVM wallet/contract interaction.
 
 Do not require InterwovenKit for this baseline path.

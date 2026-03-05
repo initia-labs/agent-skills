@@ -1,5 +1,7 @@
 # End-to-End Recipes
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 Use these recipes when users need a full workflow, not isolated snippets.
 
 ## Table of Contents

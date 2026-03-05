@@ -1,5 +1,7 @@
 # Weave Launch Config Schema
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 Use this schema for `~/.weave/launch_config.json`. Keep field names in snake_case.
 
 ## Full Shape

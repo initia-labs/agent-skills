@@ -1,5 +1,7 @@
 # Weave Command Reference
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 ## Preflight
 
 ```bash
