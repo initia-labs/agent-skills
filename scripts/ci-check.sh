@@ -9,6 +9,7 @@ export PYTHONDONTWRITEBYTECODE=1
 SKILL_FILE="skill/SKILL.md"
 SKILL_NAME="initia-appchain-dev"
 SKILLS_CLI_VERSION="1.3.7"
+TAG_LINT_SCRIPT="skill/scripts/lint-tags.sh"
 
 fail() {
   echo "[FAIL] $1"
@@ -24,6 +25,7 @@ warn() {
 }
 
 [[ -f "$SKILL_FILE" ]] || fail "$SKILL_FILE missing"
+[[ -x "$TAG_LINT_SCRIPT" ]] || fail "$TAG_LINT_SCRIPT missing or not executable"
 
 if command -v python3.9 >/dev/null 2>&1; then
   PYTHON_BIN="python3.9"
@@ -44,6 +46,9 @@ command -v npx >/dev/null 2>&1 || fail "required command not found: npx"
 if find skill/scripts -type d -name "__pycache__" -print -quit | grep -q .; then
   fail "__pycache__ directories are not allowed under skill/scripts"
 fi
+
+"$TAG_LINT_SCRIPT"
+ok "tag lint passed"
 
 skill_count="$(find . -name SKILL.md -type f | wc -l | tr -d ' ')"
 [[ "$skill_count" -eq 1 ]] || fail "expected exactly one SKILL.md, found $skill_count"
