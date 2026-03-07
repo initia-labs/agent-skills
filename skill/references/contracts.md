@@ -194,6 +194,7 @@ minitiad move test --language-version=2.1 --named-addresses MyProject=0x82ac...
 The automated `deploy` command builds and publishes the entire package in one step.
 
 **Pro Tip: Move Publishing (CRITICAL)**: When publishing Move modules, the `minitiad tx move publish` command does NOT support the `--named-addresses` flag. You MUST first build the module using `minitiad move build --named-addresses name=0x...` and then publish the generated `.mv` file. The `--upgrade-policy` flag value MUST be uppercase (e.g., `COMPATIBLE`).
+**[MOVE][DEV][CLI] Tutorial Deploy Reliability**: For deterministic tutorial deployments, prefer `minitiad move build --named-addresses ...` followed by `minitiad tx move publish <.mv>` so the exact built bytecode and sender are explicit.
 
 **CRITICAL: Address Matching**
 Initia requires the module address in `Move.toml` to match the sender's address during deployment.
@@ -560,7 +561,8 @@ For any deploy flow, return:
   - **Alternative**: Use `--named-addresses <package>=0x<HEX_ADDR> --build --force` in your `deploy` command to recompile with the correct address on the fly.
 
 - **[MOVE][CLI] Backward Incompatible Update**: If you see `BACKWARD_INCOMPATIBLE_MODULE_UPDATE`, you are trying to publish a module to an account that already has it, but your new code removes or changes existing public functions/structs.
-  - **Fix**: The preferred fix is to **rename the module** (e.g., from `items` to `items_v2`) in the source code and `Move.toml`. This allows you to keep using the same account (like `gas-station`) without compatibility issues. Only use a fresh account if renaming is not an option for the project.
+  - **Fix Option A (Additive Compatibility)**: Keep prior public APIs (for example, retain old public entry/view functions as wrappers) so the new module remains backward compatible.
+  - **Fix Option B**: Rename the module (e.g., from `items` to `items_v2`) in source and `Move.toml` when compatibility wrappers are not desired.
 
 - **[MOVE][BUILD] Build Hangs (AI Strategy)**: Building Move packages with git dependencies is extremely slow.
   - **Action**: ALWAYS use `../scripts/scaffold-contract.sh move <dir>` which sets up a local `deps/` folder for the Initia framework to ensure fast builds.

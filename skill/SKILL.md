@@ -186,9 +186,11 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
 ### Security & Key Protection (STRICTLY ENFORCED)
 - You MUST NOT export raw private keys from the keyring.
 - **[MOVE][DEV] Development (Building for Publish)**: Before publishing, you MUST rebuild the module using the intended deployer's **Hex** address: `minitiad move build --named-addresses <name>=0x<hex_addr>`.
+- **[MOVE][DEV][BUILD] Named Address Reassignment**: If `[addresses].<name>` in `Move.toml` is hardcoded (for example `0x42`) and you pass a different `--named-addresses <name>=0x...`, compilation fails with a named-address reassignment error. Prefer `"<name>" = "_"` in `[addresses]` and keep local test defaults in `[dev-addresses]`.
 - **[MOVE][DEV] Dependency Resolution**: If `InitiaStdlib` fails to resolve, use: `{ git = "https://github.com/initia-labs/movevm.git", subdir = "precompile/modules/initia_stdlib", rev = "main" }`.
 - **[MOVE][DEV] Package Scaffolding**: `minitiad move new <NAME>` can write the package into the current working directory instead of creating a sibling directory. If the user wants a specific folder such as `blockforge/`, create and enter that folder first before running `minitiad move new`.
 - **[MOVE][DEV] Clean (Non-Interactive Shells)**: `minitiad move clean` may prompt for confirmation and panic without a TTY. In automated workflows, remove the package `build/` directory directly if a clean rebuild is required.
+- **[MOVE][CLI] Deploy Semantics**: Move modules do not have a separate instantiate transaction. "Instantiation" is typically the first state-changing entry call (for example, creating per-player resources on first `mint_shard`).
 - **[EVM][CLI] Deployment**: For EVM deployment, use `minitiad tx evm create` with `--from`.
 - **[EVM][CLI] Bytecode Extraction**: Extract bytecode from Foundry artifacts using `jq`; ensure NO `0x` prefix and NO trailing newlines in `.bin` files.
 - **[EVM][DEV][CLI] `tx evm create` Input Shape**: The positional argument to `minitiad tx evm create` is a **bytecode file path**. If you want to pass raw bytecode directly, use `--input 0x...`. Passing raw hex as the positional argument can fail with `file name too long`.
@@ -327,11 +329,14 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
 8. **[MOVE][DEV] Reference Rules**: You MUST NOT return a reference (mutable or immutable) derived from a global resource (e.g., via `borrow_global_mut`) from a function unless it is passed as a parameter. Inline the logic or pass the resource as a parameter if needed.
 9. **[MOVE][DEV] Syntax**: Place doc comments (`///`) **AFTER** attributes like `#[view]` or `#[test]`.
 10. **[MOVE][CLI] Publish**: The `minitiad tx move publish` command does NOT use a `--path` flag. Pass the path to the compiled `.mv` file as a positional argument: `minitiad tx move publish <path_to_file>.mv ...`.
-11. **[WASM][BUILD] Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
-12. **Visual Polish**: Prioritize sticky glassmorphism headers, centered app-card layouts, and clear visual hierarchy.
-13. **UX Excellence**: Feed ordering (newest first), input accessibility (above feed), and interactive feedback (hover/focus).
-14. **[ALL-VM][INTERWOVENKIT] Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
-15. **Validation**: Run `scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
+11. **[MOVE][DEV][CLI] Republish Compatibility**: If republishing from the same account fails with `BACKWARD_INCOMPATIBLE_MODULE_UPDATE`, preserve existing public APIs (for example, keep prior public entry/view functions as compatibility wrappers) or rename the module before publishing.
+12. **[ALL-VM][CLI] Broadcast Mode Compatibility**: In current Initia CLIs, broadcast mode supports `sync|async`; do not assume `block` is available.
+13. **[MOVE][CLI] Tx Lookup Timing**: Immediately after `minitiad` broadcast, `minitiad query tx <hash>` may briefly return `tx not found`; poll/retry before treating it as failed.
+14. **[WASM][BUILD] Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
+15. **Visual Polish**: Prioritize sticky glassmorphism headers, centered app-card layouts, and clear visual hierarchy.
+16. **UX Excellence**: Feed ordering (newest first), input accessibility (above feed), and interactive feedback (hover/focus).
+17. **[ALL-VM][INTERWOVENKIT] Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
+18. **Validation**: Run `scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
 
 ## Progressive Disclosure (Read When Needed)
 
