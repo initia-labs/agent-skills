@@ -1,5 +1,7 @@
 # End-to-End Recipes
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 Use these recipes when users need a full workflow, not isolated snippets.
 
 ## Table of Contents
@@ -13,7 +15,7 @@ Use these recipes when users need a full workflow, not isolated snippets.
 
 ### Step 1: Preflight and setup
 
-Run the `Preflight` commands from `weave-commands.md`.  
+Run the `Preflight` commands from `weave-commands.md`.
 If dependencies are missing, install before continuing.
 
 ### Step 2: Create/fund gas station (interactive)
@@ -44,7 +46,7 @@ weave relayer start
 
 ### Step 6: Verify rollup health
 ```bash
-scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
+../scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
 ```
 
 Expected: latest block height > 0.
@@ -56,7 +58,7 @@ Use `contracts.md` for the VM-specific scaffold/build/deploy flow.
 For a minimal starter:
 
 ```bash
-scripts/scaffold-contract.sh <evm|move|wasm> <target-dir>
+../scripts/scaffold-contract.sh <evm|move|wasm> <target-dir>
 ```
 
 ### Step 8: Wire frontend providers
@@ -65,13 +67,13 @@ Choose frontend path by VM:
 - `evm` (default): use `frontend-evm-rpc.md`, then verify:
 
 ```bash
-scripts/check-provider-setup.sh --mode evm-rpc <providers-file.tsx>
+../scripts/check-provider-setup.sh --mode evm-rpc <providers-file.tsx>
 ```
 
 - `move`/`wasm` or explicit InterwovenKit request: use `frontend-interwovenkit.md`, then verify:
 
 ```bash
-scripts/check-provider-setup.sh --mode interwovenkit <providers-file.tsx>
+../scripts/check-provider-setup.sh --mode interwovenkit <providers-file.tsx>
 ```
 
 ### Step 9: Run transaction smoke test
@@ -90,7 +92,7 @@ Use `runtime-discovery.md`.
 ### Step 1: Confirm appchain health
 
 ```bash
-scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
+../scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
 ```
 
 ### Step 2: Add provider stack
@@ -125,7 +127,7 @@ Add `initia_std::oracle` to Move contracts or use `ISlinky` in Solidity.
 ### Step 2: Auto-signing (Gaming/High-Frequency)
 Enable the `autoSign` feature in the frontend for a web2-like UX.
 - **Prompt:** "Enable auto-signing in my React frontend for the 'mint' action."
-- **Action:** Use `autoSign.enable(chainId)` from `useInterwovenKit`.
+- **Action:** Use `autoSign.enable(chainId, { permissions: ["/initia.move.v1.MsgExecute"] })` from `useInterwovenKit`, then submit gameplay txs with `autoSign: true` and `feeDenom`.
 
 ### Step 3: Indexer Integration (Rich Data)
 Use the `indexerUrl` for querying NFTs and transaction history.
@@ -145,9 +147,9 @@ Identify which layer fails first:
 ### Step 2: Run deterministic checks
 
 ```bash
-scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
-scripts/check-provider-setup.sh --mode auto <providers-file.tsx>
-python3 scripts/convert-address.py <ADDRESS> --prefix init
+../scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
+../scripts/check-provider-setup.sh --mode auto <providers-file.tsx>
+python3 ../scripts/convert-address.py <ADDRESS> --prefix init
 ```
 
 ### Step 3: Reproduce with minimal path

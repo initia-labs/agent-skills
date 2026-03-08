@@ -27,7 +27,7 @@ case "$vm" in
   move)
     mkdir -p "$target/sources"
     mkdir -p "$target/deps"
-    
+
     echo "Cloning movevm locally for fast builds (latest main)..."
     git clone --depth 1 https://github.com/initia-labs/movevm.git "$target/deps/movevm" > /dev/null 2>&1 || echo "Warning: git clone failed, check connectivity."
 
@@ -35,7 +35,6 @@ case "$vm" in
 [package]
 name = "$pkg_name"
 version = "0.0.1"
-edition = "2024.alpha"
 
 [dependencies]
 InitiaStdlib = { local = "deps/movevm/precompile/modules/initia_stdlib" }
@@ -235,7 +234,7 @@ contract Deploy is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy logic here
-        
+
         vm.stopBroadcast();
     }
 }
@@ -267,7 +266,10 @@ minitiad tx evm call <contract-address> $DATA --from gas-station --chain-id <cha
 EOF
 
     # Initialize git and install forge-std
-    (cd "$target" && git init -q && forge install foundry-rs/forge-std --no-git -q || true)
+    (cd "$target" && git init -q)
+    if ! (cd "$target" && forge install foundry-rs/forge-std --no-git -q); then
+      echo "Warning: forge install failed, continuing without forge-std. Check connectivity and Foundry install." >&2
+    fi
     cat > "$target/remappings.txt" <<EOF
 forge-std/=lib/forge-std/src/
 EOF

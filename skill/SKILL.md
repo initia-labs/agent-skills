@@ -7,6 +7,8 @@ description: End-to-end Initia development and operations guide. Use when asked 
 
 Deliver practical guidance for full-stack Initia development: contracts, frontend integration, and appchain operations.
 
+Command examples in this file assume the working directory is `skill/`; use `scripts/...` paths accordingly.
+
 ## Intake Questions (Ask First)
 
 Collect missing inputs before implementation:
@@ -19,305 +21,350 @@ Collect missing inputs before implementation:
 
 If critical values are missing, ask concise follow-up questions before generating final code/config.
 
-If `chain_id`/endpoints/VM are missing, run the discovery flow in `runtime-discovery.md` before assuming defaults.
+If `chain_id`/endpoints/VM are missing, run the discovery flow in `references/runtime-discovery.md` before assuming defaults.
+
+If `weave` is installed but fails with shell-level errors, continue discovery
+with `~/.minitia/artifacts/config.json` and direct `minitiad` commands instead
+of blocking on `weave`.
 
 Then ask a context-specific confirmation:
 - Frontend task: "I found a local rollup config/runtime. Should I use this rollup for frontend integration?"
 - Non-frontend task: "I found local runtime values (VM, chain ID, endpoints). Should I use these for this task?"
+
+## Environment Setup Workflow (One-Prompt Setup)
+
+When the user asks to "set up my environment for the [Track] track" (Step 5), execute this sequence:
+
+### 1. Identify Track Requirements & Prerequisites
+- **[MOVE] Track:** `minimove` repo -> `minitiad`. Requires `go`.
+- **[EVM] Track:** `minievm` repo -> `minitiad`. Requires `go`, `foundry`.
+- **[WASM] Track:** `miniwasm` repo -> `minitiad`. Requires `go`, `rust/cargo`.
+
+### 2. Check System Prerequisites
+Check prerequisites by selected track (always check `docker` for tool installer compatibility):
+- **[MOVE] Track:** `go`, `docker`
+- **[EVM] Track:** `go`, `docker`, `foundry`
+- **[WASM] Track:** `go`, `docker`, `cargo`
+
+For each required tool in the selected track:
+- If **missing**: Inform the user and **propose** the installation command (e.g., "I see you're missing Cargo. Would you like me to install it for you using `rustup`?").
+- If **present**: Proceed silently.
+
+### 3. Install Core Initia Tools
+Run `scripts/install-tools.sh` to install `jq`, `weave`, and `initiad` (L1).
+- **Security**: If the script requires `sudo`, explain this to the user before running.
+- If the required tools are already present, prefer verifying versions over reinstalling. Pinned installer versions may lag behind what is already installed on the machine.
+
+### 4. Build VM-Specific Binary (`minitiad`)
+Clone, build, and **clean up** the relevant VM from source.
+
+Run the build from the repository directory itself. Do not rely on shell-chained `cd ... && make install` examples if your execution environment manages working directories separately.
+
+- **[MOVE]:**
+  ```sh
+  git clone --depth 1 https://github.com/initia-labs/minimove.git /tmp/minimove
+  cd /tmp/minimove
+  make install
+  rm -rf /tmp/minimove
+  ```
+- **[EVM]:**
+  ```sh
+  git clone --depth 1 https://github.com/initia-labs/minievm.git /tmp/minievm
+  cd /tmp/minievm
+  make install
+  rm -rf /tmp/minievm
+  ```
+- **[WASM]:**
+  ```sh
+  git clone --depth 1 https://github.com/initia-labs/miniwasm.git /tmp/miniwasm
+  cd /tmp/miniwasm
+  make install
+  rm -rf /tmp/miniwasm
+  ```
+
+### 5. Configure PATH
+- Ensure `~/go/bin` is in the user's `PATH`.
+- Check shell config files (`.zshrc`, `.bashrc`) and suggest the `export` command if missing.
+- After updating shell config, tell the user to run `source ~/.zshrc` (or open a new terminal) to apply changes in their current shell.
+- For verification, you may run `zsh -lc 'source ~/.zshrc && <command>'` in a single command; this does not persist across separate assistant commands.
+
+### 6. Final Verification
+Run:
+- `weave version`
+- `initiad version`
+- `minitiad version --long | rg '^(name|server_name|version|commit):'`
+
+Required VM match:
+- **[EVM] track:** `name: minievm`
+- **[MOVE] track:** `name: minimove`
+- **[WASM] track:** verify the reported `name` matches the Wasm VM you built
+
+Do not treat a successful `minitiad version` command by itself as sufficient verification. The binary on `PATH` may still be from a different VM track.
 
 ## Opinionated Defaults
 
 | Area | Default | Notes |
 |---|---|---|
 | VM | `evm` | Use `move`/`wasm` only when requested |
-| Move Version | `2.1` | Uses `minitiad move build`. Note: `edition = "2024.alpha"` in Move.toml may trigger 'unknown field' warnings but is safe to ignore. |
+| Move Version | `2.1` | Uses `minitiad move build`. Prefer omitting `edition` from `Move.toml` unless a specific compiler version requires it. |
 | Network | `testnet` | Use `mainnet` only when explicitly requested |
-| Frontend (EVM VM) | wagmi + viem direct JSON-RPC | Default for pure EVM apps |
-| Frontend (Move/Wasm or bridge wallet UX) | `@initia/interwovenkit-react` | Use when InterwovenKit features are required |
-| Frontend wallet flow (InterwovenKit path) | `requestTxBlock` | Prefer confirmation UX |
-| Local Frontend wallet flow | `requestTxSync` | Use sync submission for better robustness in local dev |
-| Frontend provider order (InterwovenKit path) | Wagmi -> Query -> InterwovenKit | Stable path for Initia SDKs |
+| Frontend (EVM VM) | wagmi + viem JSON-RPC | Default for pure EVM apps |
+| Frontend (Move/Wasm) | `@initia/interwovenkit-react`| Use when InterwovenKit features are required |
+| Tx UX | `requestTxBlock` | Prefer confirmation UX; use `requestTxSync` for local dev robustness. |
+| Provider order | Wagmi -> Query -> InterwovenKit | Stable path for Initia SDKs |
 | Rollup DA | `INITIA` | Prefer Celestia only when explicitly needed |
-| Rollup moniker | `operator` | Override for production naming |
-| Gas Station Key | `gas-station` | Default key name used in tutorials |
-| Keyring Backend | `test` | Use `--keyring-backend test` for hackathon tools |
-| EVM denom | `GAS` | Typical test/internal default |
-| Move/Wasm denom | `umin` | Typical default |
+| Keys & Keyring | `gas-station` / `test` | Default key and `--keyring-backend test` for hackathon tools |
+| Denoms | `GAS` (EVM) / `umin` (Move) | Typical defaults for test/internal rollups |
+
+## Strict Constraints (NEVER VIOLATE)
+
+### Tagging Standard
+- Use VM-first tags for VM-specific guidance: `[EVM]`, `[MOVE]`, `[WASM]`, `[ALL-VM]`.
+- Add optional context tags after VM: `[CLI]`, `[DEV]`, `[REST]`, `[RPC]`, `[FRONTEND]`, `[INTERWOVENKIT]`, `[BUILD]`, `[TEST]`.
+- Prefer stacked tags (example: `[EVM][CLI]`) over combined tags (for example, avoid `[EVM CLI]`).
+- Required workflow for any skill markdown edit: run `scripts/lint-tags.sh` before changes and run it again before handoff.
+
+### Initia Usernames (STRICTLY OPT-IN)
+- You MUST NOT implement username support in any scaffold, component, or code snippet unless explicitly requested (e.g., "add username support").
+- When requested, use `useInterwovenKit().username` only for the connected wallet's own display name.
+- Pattern: `{username ? username : shortenAddress(initiaAddress)}`
+- For resolving usernames of arbitrary wallet addresses (for example, MemoBoard sender rows), use `useUsernameQuery(address?)` with the sender address; this requires `@initia/interwovenkit-react` `2.4.6` or newer.
+- For feeds, boards, or any rendered list of messages/accounts, resolve sender usernames inside a child row component (for example `MessageRow`) and call `useUsernameQuery(address)` there. Do NOT call hooks directly inside a parent component's `.map()` callback or conditional loop body.
+- Do NOT resolve via REST unless hook-based resolution is insufficient.
+- `useUsernameQuery` behavior:
+  - No param: resolves connected wallet address (`useAddress()` fallback).
+  - With param: resolves the provided address.
+
+### Workspace Hygiene (CRITICAL)
+- You MUST NOT leave temporary files or metadata JSON files (e.g., `store_tx.json`, `tx.json`, `.bin`) in the project directory after a task.
+- Delete binary files used for deployment before finishing.
+
+### InterwovenKit Local Appchains (CRITICAL)
+- When configuring a frontend for a local appchain, you MUST use BOTH the `customChain` AND `customChains: [customChain]` properties in `InterwovenKitProvider`.
+- **Example Usage**:
+  ```jsx
+  <InterwovenKitProvider 
+    {...TESTNET} 
+    customChain={customChain} 
+    customChains={[customChain]}
+  >
+    <App />
+  </InterwovenKitProvider>
+  ```
+- **Bridge Support**: To ensure the bridge can resolve public chains (like `initiation-2`), ALWAYS spread the `{...TESTNET}` preset (imported from `@initia/interwovenkit-react`) into the `InterwovenKitProvider`: `<InterwovenKitProvider {...TESTNET} ... />`.
+- **Address Prefix**: `customChain` MUST include a top-level `bech32_prefix` string (e.g., `bech32_prefix: "init"`). This is **mandatory for all appchain types**.
+- **Metadata Completeness**: To avoid "Chain not found" errors, the `customChain` object MUST include `network_type: 'testnet'`, `staking`, `fees` (with `low/average/high_gas_price: 0`), and `native_assets` arrays.
+- **API Requirements**: The `apis` object MUST include `rpc`, `rest`, AND `indexer` (use a placeholder if needed) to satisfy the kit's discovery logic.
+- **Bridge Support (openBridge)**: When using `openBridge`, ONLY specify `srcChainId` and `srcDenom` (e.g., `initiation-2` and `uinit`). Avoid specifying a local `dstChainId` as it may cause resolution errors if the local chain is not yet indexed.
+- **Example `customChain` Structure**:
+  ```javascript
+  const customChain = {
+    chain_id: '<INSERT_APPCHAIN_ID_HERE>',
+    chain_name: '<INSERT_APP_NAME_HERE>',
+    network_type: 'testnet', // MANDATORY
+    bech32_prefix: 'init',
+    apis: {
+      rpc: [{ address: 'http://localhost:26657' }],
+      rest: [{ address: 'http://localhost:1317' }],
+      indexer: [{ address: 'http://localhost:8080' }], // MANDATORY
+      'json-rpc': [{ address: 'http://localhost:8545' }],
+    },
+    fees: { fee_tokens: [{ denom: 'umin', fixed_min_gas_price: 0, low_gas_price: 0, average_gas_price: 0, high_gas_price: 0 }] },
+    staking: { staking_tokens: [{ denom: 'umin' }] },
+    native_assets: [{ denom: 'umin', name: 'Token', symbol: 'TKN', decimals: 6 }],
+    metadata: { is_l1: false, minitia: { type: 'minimove' } }
+  }
+  ```
+
+### Frontend Requirements (CRITICAL)
+- **Placeholder Sync**: Immediately after scaffolding a frontend, you MUST update all placeholders in `main.jsx` (like `<INSERT_APPCHAIN_ID_HERE>`, `<INSERT_NATIVE_DENOM_HERE>`, etc.) with the actual values discovered during the Research phase (e.g., `bank-1`, `GAS`, `minievm`).
+- **Runtime Config Sync**: If the frontend depends on a deployed contract address, you MUST wire the resolved live address into runtime config (for example, `.env` / `VITE_*`) instead of leaving only placeholders or examples. If `.env` values are added or changed for a running Vite app, tell the user to restart the dev server.
+- **Hook Exports**: `useInterwovenKit` exports `initiaAddress`, `address`, `username`, `openConnect`, `openWallet`, `openBridge`, `requestTxBlock`, `requestTxSync`, and `autoSign`.
+- **Transaction Guards**: Before calling `requestTxBlock` or `requestTxSync`, you MUST verify that `initiaAddress` is defined.
+- **[ALL-VM] Sender Address**: In Initia, the `sender` field for all message types (`MsgCall`, `MsgExecute`, `MsgExecuteContract`) MUST be the Bech32 address. Use `initiaAddress` for this field to ensure compatibility across EVM, Move, and Wasm appchains. Using the hex `address` on an EVM chain for the `sender` field in a Cosmos-style message will cause an "empty address string" or "decoding bech32 failed" error.
+
+### Security & Key Protection (STRICTLY ENFORCED)
+- You MUST NOT export raw private keys from the keyring.
+- **[MOVE][DEV] Development (Building for Publish)**: Before publishing, you MUST rebuild the module using the intended deployer's **Hex** address: `minitiad move build --named-addresses <name>=0x<hex_addr>`.
+- **[MOVE][DEV][BUILD] Named Address Reassignment**: If `[addresses].<name>` in `Move.toml` is hardcoded (for example `0x42`) and you pass a different `--named-addresses <name>=0x...`, compilation fails with a named-address reassignment error. Prefer `"<name>" = "_"` in `[addresses]` and keep local test defaults in `[dev-addresses]`.
+- **[MOVE][DEV] Dependency Resolution**: If `InitiaStdlib` fails to resolve, use: `{ git = "https://github.com/initia-labs/movevm.git", subdir = "precompile/modules/initia_stdlib", rev = "main" }`.
+- **[MOVE][DEV] Package Scaffolding**: `minitiad move new <NAME>` can write the package into the current working directory instead of creating a sibling directory. If the user wants a specific folder such as `blockforge/`, create and enter that folder first before running `minitiad move new`.
+- **[MOVE][DEV] Clean (Non-Interactive Shells)**: `minitiad move clean` may prompt for confirmation and panic without a TTY. In automated workflows, remove the package `build/` directory directly if a clean rebuild is required.
+- **[MOVE][CLI] Deploy Semantics**: Move modules do not have a separate instantiate transaction. "Instantiation" is typically the first state-changing entry call (for example, creating per-player resources on first `mint_shard`).
+- **[EVM][CLI] Deployment**: For EVM deployment, use `minitiad tx evm create` with `--from`.
+- **[EVM][CLI] Bytecode Extraction**: Extract bytecode from Foundry artifacts using `jq`; ensure NO `0x` prefix and NO trailing newlines in `.bin` files.
+- **[EVM][DEV][CLI] `tx evm create` Input Shape**: The positional argument to `minitiad tx evm create` is a **bytecode file path**. If you want to pass raw bytecode directly, use `--input 0x...`. Passing raw hex as the positional argument can fail with `file name too long`.
+- **[ALL-VM][SECURITY] Private Key Handling**: If a tool requires a private key, find an alternative workflow using Initia CLI or `InterwovenKit`.
+
+### Frontend Requirements (ADDITIONAL)
+- **Polyfills**: Use `vite-plugin-node-polyfills` in `vite.config.js` with `globals: { Buffer: true, process: true }`. Also set `resolve.dedupe` to `['react', 'react-dom', 'wagmi', '@tanstack/react-query', 'viem']` to avoid provider context splits in Vite. If using manual polyfills, define `Buffer` and `process` global polyfills at the TOP of `main.jsx`.
+  ```javascript
+  import { Buffer } from "buffer";
+  window.Buffer = Buffer;
+  window.process = { env: {} };
+  ```
+- **Styles**: 
+  - Import the CSS: `import "@initia/interwovenkit-react/styles.css"`.
+  - Import the style data: `import InterwovenKitStyles from "@initia/interwovenkit-react/styles.js"`.
+  - Import the injector function: `import { injectStyles } from "@initia/interwovenkit-react"`.
+  - Inject them: `injectStyles(InterwovenKitStyles)`.
+  - **Note**: `InterwovenKitStyles` is a DEFAULT export from the styles subpath, while `injectStyles` is a NAMED export from the main package.
+- **Provider Order**: `WagmiProvider` -> `QueryClientProvider` -> `InterwovenKitProvider`.
+- **Wallet Modal**: 
+  - Use `openConnect` (not `openModal`) to open the connection modal (v2.4.0+).
+  - **Connected State (CRITICAL)**: When `initiaAddress` is present, ALWAYS provide a clickable UI element (e.g., a button with a shortened address) that calls `openWallet` to allow the user to manage their connection or disconnect.
+- **Auto-Sign Implementation (STRICTLY OPT-IN)**: 
+  - You MUST NOT implement auto-sign support in any scaffold, provider, or component unless explicitly requested (e.g., "add auto-sign support").
+  - When requested:
+    - **Provider**: Pass `enableAutoSign={true}` to `InterwovenKitProvider`.
+    - **Hook**: Destructure the `autoSign` *object* (not functions) from `useInterwovenKit`.
+    - **Safety**: Use optional chaining (`autoSign?.`) and check status via `autoSign?.isEnabledByChain[chainId]`.
+    - **Actions**: `await autoSign?.enable(chainId)` and `await autoSign?.disable(chainId)` are asynchronous.
+    - **Permissions (CRITICAL)**: To ensure the session key can sign specific message types, ALWAYS include explicit permissions in `autoSign.enable`:
+      ```javascript
+      await autoSign.enable(chainId, { permissions: ["/initia.move.v1.MsgExecute"] })
+      ```
+    - **Error Handling**: If `autoSign.disable` fails with "authorization not found", handle it by calling `autoSign.enable` with the required permissions to reset the session.
+- **REST Client**: Instantiate `RESTClient` from `@initia/initia.js` manually; it is NOT exported from the hook.
+  - **CRITICAL**: Do NOT attempt to destructure `networks` or `rest` from `useInterwovenKit`. These objects are NOT available in the hook. Always define your REST/RPC endpoints manually or via your own configuration.
+
+### Transaction Message Flow (CRITICAL)
+- **[WASM][INTERWOVENKIT] Transaction Envelope**: ALWAYS include `chainId`. Prefer `requestTxSync`.
+  - **[WASM][INTERWOVENKIT] Payload Encoding**: `MsgExecuteContract` expects the `msg` field as bytes (**`Uint8Array`**). Use `new TextEncoder().encode(JSON.stringify(msg))`.
+- **[ALL-VM][INTERWOVENKIT] Auto-Sign (Headless)**: To ensure auto-signed transactions are "headless" (no fee selection prompt), ALWAYS include an explicit `feeDenom` (e.g., `feeDenom: "umin"`) AND the `autoSign: true` flag in the request:
+  ```javascript
+  await requestTxSync({ 
+    chainId, 
+    autoSign: true, // CRITICAL: Required for silent signing flow
+    messages: [...] 
+  })
+  ```
+- **[EVM] Sender (MsgCall)**: Use **bech32** address for `sender` in `MsgCall`, but **hex** for `contractAddr`. 
+  - **Normalization**: ALWAYS lowercase the bech32 sender address to avoid "decoding bech32 failed" errors.
+- **[EVM][INTERWOVENKIT] Payload**: Use plain objects with `typeUrl: "/minievm.evm.v1.MsgCall"`. The actual message fields MUST be wrapped inside a `value` key.
+  - **Incorrect**: `{ typeUrl: "...", sender: "...", contractAddr: "..." }`
+  - **Correct**: `{ typeUrl: "...", value: { sender: "...", contractAddr: "...", ... } }`
+- **[EVM][INTERWOVENKIT] `requestTxBlock` Key**: ALWAYS use `messages` (plural), not `msgs`. Passing `msgs` can fail with `Cannot read properties of undefined (reading 'map')`.
+- **[EVM] Field Naming**: Use **camelCase** for fields (`contractAddr`, `accessList`, `authList`) and include empty arrays for lists.
+- **[MOVE][INTERWOVENKIT] MsgExecute Field Naming**: Use **camelCase** for fields; `moduleAddress` MUST be **bech32**.
+  - **[MOVE][INTERWOVENKIT] Mandatory Arrays**: ALWAYS include `typeArgs: []` and `args: []` even if they are empty. Omitting these fields in a Move execution message will cause a `TypeError` (Cannot read properties of undefined reading 'length') during the Amino conversion process in the frontend.
+
+### Wasm REST Queries (CRITICAL)
+- **[WASM][REST] Query Encoding**: When querying Wasm contract state using the `RESTClient` (e.g., `rest.wasm.smartContractState`), the query message MUST be a **Base64-encoded string**.
+- The query JSON and execute JSON MUST match the contract's Rust message schema exactly. Do NOT assume names like `all_messages` or specific field names such as `text` or `message`; for example, MemoBoard variants commonly use `get_messages` with `post_message: { message: ... }`, while other contracts may use different field names.
+- **Example Implementation**:
+  ```javascript
+  const queryData = Buffer.from(JSON.stringify({ get_messages: {} })).toString("base64");
+  const res = await rest.wasm.smartContractState(CONTRACT_ADDR, queryData);
+  ```
+- **[WASM][REST] Response Shape**: `smartContractState` commonly returns the decoded payload directly (for example `res.messages`) rather than nesting it under `res.data`. Do not assume a `.data` wrapper unless you have verified the concrete response shape.
+- **[WASM][REST] Method Name**: ALWAYS use `smartContractState`. Methods like `queryContractSmart` are NOT available in the Initia `RESTClient`.
+- **[WASM][CLI] Fallback**: If `minitiad query wasm contract-state smart <CONTRACT_ADDRESS> ...` fails with a Bech32 checksum error even though the address came from the instantiate event or `list-contract-by-code`, treat the chain-emitted address as the source of truth. Verify it with `minitiad query wasm list-contract-by-code <CODE_ID>` and continue with the REST endpoint path or `RESTClient` instead of blocking on the CLI parser.
+
+### Wasm Rust Testing (CRITICAL)
+- **[WASM][TEST] Address Comparison**: When writing unit tests for Wasm contracts, ALWAYS use `.as_str()` when comparing `cosmwasm_std::Addr` with a string literal or `String`. `Addr` does NOT implement `PartialEq<&str>` or `PartialEq<String>` directly.
+- **Incorrect**: `assert_eq!("user1", value.sender);`
+- **Correct**: `assert_eq!("user1", value.sender.as_str());`
+
+### Token Precision & Funding (EVM SPECIFIC)
+- **[EVM] Precision**: Assume standard EVM precision ($10^{18}$ base units) for all native tokens on EVM appchains (e.g., `GAS`).
+- **[EVM] Funding Requests**: When a user asks for "N tokens" on an EVM chain:
+  - **Frontend**: Multiply by $10^{18}$ (e.g., `parseUnits(amount, 18)`).
+  - **CLI**: You MUST manually scale the value. For "100 tokens", use `100000000000000000000GAS` (100 + 18 zeros) in the `bank send` command.
+- **[EVM][FRONTEND] Human-Readable UI**: ALWAYS use `formatUnits(balance, 18)` from `viem` to display EVM balances. NEVER display raw base units in the UI.
+- **[EVM][FRONTEND][DEV] `parseEther` / `formatEther` Usage**: `parseEther` and `formatEther` are valid shorthand ONLY when the chain token uses exactly 18 decimals. If decimals might vary, use `parseUnits(amount, decimals)` and `formatUnits(balance, decimals)` from runtime config.
+
+### EVM Queries & Transactions (CRITICAL)
+- **[EVM][FRONTEND] ABI Sync**: Treat compiled ABI/function names as the source of truth. Do NOT assume names like `getMyBalance`; confirm names/signatures from the generated artifact (for example `out/<Contract>.sol/<Contract>.json`) before wiring frontend `encodeFunctionData` calls.
+- **[EVM][RPC] State Queries**: Prefer standard JSON-RPC `eth_call` over `RESTClient` for EVM state queries to avoid property-undefined errors.
+- **[EVM][FRONTEND][RPC] Read Path Provider**: For read-only EVM queries (`eth_call`), use a configured JSON-RPC endpoint (for example `VITE_JSON_RPC_URL`) instead of relying on injected wallet providers (`window.ethereum`). This avoids "EVM wallet provider not found" failures when no EVM extension is injected.
+- **[EVM][RPC] Address Conversion**: When querying EVM state (e.g., `eth_call`), ALWAYS convert the bech32 address to hex using `AccAddress.toHex(addr)` and ensure the hex address is lowercased.
+- **[EVM][CLI] Sender Format**: `minitiad query evm call` expects a **bech32** sender (`init1...`) as the first argument.
+- **[EVM][CLI] Query Output Field**: `minitiad query evm call -o json` returns the call result under `.response` (hex string).
+- **[EVM][CLI] Tx Lookup Timing**: Immediately after broadcast, `minitiad query tx <hash>` may briefly return `tx not found`; retry briefly before failing.
+- **[EVM][CLI] Calldata Encoding**: 
+  - **[EVM][FRONTEND] Preferred**: Prefer `viem` (e.g., `encodeFunctionData`) for generating contract `input` hex. 
+  - **[EVM][CLI] Preferred**: ALWAYS use `cast calldata` (e.g., `$(cast calldata "func(type)" arg)`) for generating contract `input` hex. Manual encoding (e.g., `printf`) is brittle and MUST be avoided.
+  - **[EVM][CLI] Manual Padding**: If manual encoding is unavoidable, ensure `BigInt` values are converted to hex and padded to exactly 64 characters for `uint256` arguments.
+
+### Move REST Queries (CRITICAL)
+- **[MOVE][REST] Module Address Format**: When querying Move contract state using the `RESTClient` (e.g., `rest.move.view`), the module address MUST be in **bech32** format.
+- **[MOVE][REST] Struct Tag Address Format**: When querying Move resources using `rest.move.resource`, the **resource owner** remains bech32, but the **struct tag module address MUST be hex** (`0x...::module::Struct`). Do NOT build a struct tag with a bech32 module address.
+- **[MOVE][REST] Address Arguments**: Address arguments in `args` MUST be converted to hex, stripped of `0x`, **padded to 64 chars** (32 bytes), and then Base64-encoded.
+- **Example Implementation**:
+  ```javascript
+  const b64Addr = Buffer.from(
+    AccAddress.toHex(addr).replace('0x', '').padStart(64, '0'), 
+    'hex'
+  ).toString('base64');
+  const res = await rest.move.view(mod_bech32, mod_name, func_name, [], [b64Addr]);
+  ```
+- **Resource Query Example**:
+  ```javascript
+  const structTag = `${AccAddress.toHex(moduleBech32)}::items::Inventory`;
+  const res = await rest.move.resource(walletBech32, structTag);
+  ```
+- **[MOVE][REST] Response Parsing**: The response from `rest.move.view` is a `ViewResponse` object; you MUST parse `JSON.parse(res.data)` to access the actual values.
+- **[MOVE][REST] Missing Resource Handling**: For first-use state such as inventories, a resource may not exist yet. Treat a "not found" response from `rest.move.resource` as a valid zero/default state instead of surfacing it as a hard failure.
+- **[MOVE][REST] Troubleshooting (400 Bad Request)**: If `rest.move.view` returns a 400 error, it is almost ALWAYS because:
+  1. The module address is not bech32.
+  2. The address arguments in `args` are not correctly hex-padded-base64 encoded.
+- **[MOVE][INTERWOVENKIT] Auto-Sign (No message types configured)**: If `autoSign.enable` fails with "No message types configured", ensure:
+  1. `metadata.minitia.type` is set correctly (e.g., `minimove`, `minievm`).
+  2. `defaultChainId` in `InterwovenKitProvider` matches your `customChain.chain_id`.
+  3. `bech32_prefix` is present at the top level of `customChain`.
 
 ## Operating Procedure (How To Execute Tasks)
 
-### Strict Constraints (NEVER VIOLATE)
-- **Initia Usernames (STRICTLY OPT-IN)**: You MUST NOT implement username support in any scaffold, component, or code snippet unless the user explicitly requests it (e.g., "add username support").
-  - This mandate takes absolute precedence over "Proactiveness", "Visual Polish", or **external documentation/examples**.
-  - When explicitly asked to integrate usernames, ALWAYS use the `username` property directly from the `useInterwovenKit()` hook.
-  - Correct Pattern (Header): `{username ? username : shortenAddress(initiaAddress)}`
-  - Correct Pattern (Feed/Messages): `{message.sender === initiaAddress && username ? username : shortenAddress(message.sender)}`
-  - Do NOT attempt to manually resolve usernames via REST or `getProfile` unless the hook's property is insufficient for a specific requirement.
-- **Workspace Hygiene (CRITICAL)**: You MUST NOT leave temporary files, transaction logs, or metadata JSON files (e.g., `store_tx.json`, `instantiate_tx.json`, `deploy_receipt.json`, or `.bin` files) in the project directory after a task is complete. 
-  - If you use redirection to capture CLI output for parsing (e.g., `> tx.json`), or generate binary files for deployment (e.g., `MiniBank.bin`), you MUST delete these files before finishing the task.
-  - Prefer piping or capturing output into variables when possible to avoid disk pollution.
-- **InterwovenKit Local Appchains (CRITICAL)**: When scaffolding or configuring a frontend for a local appchain (not on a public network), you MUST use the `customChain` (singular) property in the `InterwovenKitProvider` and ensure `defaultChainId` matches the appchain's ID.
-  - The `customChain.apis` object MUST include `rpc`, `rest`, AND `indexer` (even if indexer is a placeholder).
-  - For EVM appchains, `customChain.apis` MUST also include `json-rpc`.
-  - Failure to provide these endpoints will result in "Chain not found" or "URL not found" errors at runtime.
-- **Security & Key Protection (STRICTLY ENFORCED)**: You MUST NOT export raw private keys from the keyring (e.g., `initiad keys export`) for any reason, including for use with tools like `forge create` or `foundry script`.
-  - For EVM contract deployment, you MUST use the native `minitiad tx evm create` command with the `--from` flag. This ensures transactions are signed securely within the encrypted keyring.
-  - **Bytecode Extraction (EVM)**: To deploy an EVM contract, extract the bytecode from the Foundry artifact using `jq -r '.bytecode.object' <artifact.json>`. Ensure the binary file contains NO `0x` prefix and NO trailing newlines (use `tr -d '\n' | sed 's/^0x//'`).
-  - **Deployment Command (EVM)**: Use `minitiad tx evm create <bin_file>` for the most reliable deployment. If using the `--input` flag, the input MUST include the `0x` prefix.
-  - **Contract Address Recovery**: After deployment, extract the contract address from the transaction receipt using `jq -r '.events[] | select(.type == "contract_created") | .attributes[] | select(.key == "contract") | .value'`.
-  - If a tool requires a private key to operate, you MUST find an alternative workflow that uses the native Initia CLI or `InterwovenKit`.
-
-When solving an Initia task:
-
-1. Classify the task layer:
-- Contract layer (Move/Wasm/EVM)
-- Frontend/wallet/provider layer
-- Appchain/Weave operations layer
-- Integration and transaction execution layer
-- Testing/CI and infra layer (RPC/LCD/indexer health)
-
-2. Path & Environment Verification (CRITICAL):
-- Before executing commands, verify that required tools are in the PATH.
-- If `run_shell_command` fails with "command not found", check standard locations:
-  - Rust/Cargo: `~/.cargo/bin/cargo`
-  - EVM/Foundry: `~/.foundry/bin/forge`
-  - Initia/Minitia: `which initiad` or `which minitiad`
-- Use absolute paths if necessary to avoid environment-related failures (e.g., `~/.cargo/bin/cargo test`).
-
-3. Workspace Awareness (CRITICAL):
-- Before scaffolding (e.g., `minitiad move new` or `npm create vite`), check if a project already exists in the current directory (`ls -F`).
-- If the user is already inside a project directory (has a `Move.toml` or `package.json`), do NOT create a new subdirectory unless explicitly asked.
-- **EVM/Foundry**: If installing libraries (e.g., `forge install`), ensure the directory is a git repository (`git init`) and use `--no-git` to avoid submodule issues if git is not desired.
-- **Scaffolding Strategy**: To avoid terminal hangs or interactive prompts, ALWAYS use the provided scaffolding scripts. These scripts ensure a 100% non-interactive experience.
-- **Frontend Entry Point (CRITICAL)**: After scaffolding, you MUST verify the existence of `index.html` in the project root. If missing, create a standard Vite `index.html` with `<div id="root"></div>` and the module script pointing to `src/main.jsx`.
-- **Mandatory Dependencies (CRITICAL)**: When setting up an InterwovenKit frontend, you MUST ensure the following packages are installed as they are required peer dependencies: `@tanstack/react-query`, `wagmi`, `viem`, and `buffer`.
-- **Component Mounting**: After creating a new feature component (e.g., `Board.jsx`), ALWAYS verify that it is imported and rendered in `App.jsx`.
-- **Post-Scaffold Config**: After scaffolding a frontend for a local appchain, you MUST update `src/main.jsx` to include the `customChain` configuration in the `InterwovenKitProvider`. See `frontend-interwovenkit.md` for the standard local appchain config object. Ensure the `chain_id` and `rpc`/`rest` endpoints match the discovered appchain runtime. Additionally, you MUST ensure `vite.config.js` is updated with `vite-plugin-node-polyfills` (specifically for `Buffer`) as `initia.js` and other SDKs depend on these globals. Furthermore, ensure `src/App.css` exists as it is typically imported by `App.jsx`.
-- **Frontend Provider & Polyfill Setup (CRITICAL)**: In `main.jsx`, you MUST:
-  1. Define global polyfills for `Buffer` and `process` at the TOP of the file:
-     ```javascript
-     import { Buffer } from 'buffer'
-     window.Buffer = Buffer
-     window.process = { env: { NODE_ENV: 'development' } }
-     ```
-  2. Import and inject InterwovenKit styles to ensure the wallet drawer is stylized:
-     ```javascript
-     import '@initia/interwovenkit-react/styles.css'
-     import { injectStyles } from '@initia/interwovenkit-react'
-     import InterwovenKitStyles from '@initia/interwovenkit-react/styles.js'
-     injectStyles(InterwovenKitStyles)
-     ```
-  3. Wrap `InterwovenKitProvider` with `WagmiProvider` and `QueryClientProvider` in THIS EXACT ORDER:
-     ```tsx
-     <WagmiProvider config={wagmiConfig}>
-       <QueryClientProvider client={queryClient}>
-         {/* ALWAYS use ...TESTNET or ...MAINNET baseline even for local appchains */}
-         <InterwovenKitProvider 
-           {...TESTNET} 
-           defaultChainId="your-appchain-id" 
-           customChain={customChain}
-           // enableAutoSign={true} // OPTIONAL: Include only if auto-sign functionality is requested
-         >
-           <App />
-         </InterwovenKitProvider>
-       </QueryClientProvider>
-     </WagmiProvider>
-     ```
-  4. Import and use `useAccount` and `useDisconnect` from `wagmi` for wallet state, while using `useInterwovenKit` for `initiaAddress`, `requestTxBlock`, and `openConnect`.
-  5. **IMPORTANT (v2.4.0)**: Use `openConnect` (not `openModal`) to open the wallet connection modal. Extract it from the `useInterwovenKit` hook.
-  6. **IMPORTANT (v2.4.0)**: `useInterwovenKit` does NOT export a `rest` client. You MUST instantiate `RESTClient` from `@initia/initia.js` manually for queries.
-  7. **Chain Stability (CRITICAL)**: To avoid "Chain not found" or "URL not found" errors, the `customChain.apis` object MUST include `rpc`, `rest`, AND `indexer` (even as a placeholder like `[{ address: "http://localhost:8080" }]`) in `apis`. Additionally, `metadata` MUST include `is_l1: false` for appchains. The `customChain` MUST also include a `fees` section with `fee_tokens` (e.g., `fees: { fee_tokens: [{ denom: "umin", fixed_min_gas_price: 0.15, ... }] }`) to prevent runtime SDK errors. Always use the singular `customChain` prop in `InterwovenKitProvider` for a single local appchain.
-  8. **EVM Compatibility (NEW)**: For EVM-compatible appchains, the `customChain.apis` object MUST include a `"json-rpc"` entry (e.g., `[{ address: "http://localhost:8545" }]`). Failure to include any of these endpoints in the correct array-of-objects format will result in "URL not found" errors during frontend runtime.
-- **Transaction Message Flow (CRITICAL)**: When performing transactions via `useInterwovenKit`:
-  1. For Wasm contract execution, ALWAYS include the `chainId` in the payload to avoid "must contain at least one message" RPC errors.
-  2. Prefer `requestTxSync` for better robustness in local development.
-  3. Ensure the message array is correctly named (`messages` for `requestTxSync` or `msgs` for `requestTxBlock` per SDK version expectations).
-  4. **EVM Sender**: For `MsgCall` transactions on EVM appchains, the `sender` field MUST use the **bech32** address (`initiaAddress` from `useInterwovenKit`), while the `contractAddr` remains hex (`0x...`).
-  5. **EVM Payload**: For `MsgCall`, you MUST use **camelCase** for fields (`contractAddr`, `accessList`, `authList`) and include empty arrays (`[]`) for both lists to avoid Amino conversion errors.
-  6. **EVM Queries**: When querying EVM state using `ethers` or `eth_call`, you MUST convert bech32 addresses to hex using `AccAddress.toHex(address)` from `@initia/initia.js`. Ensure the resulting string has exactly one `0x` prefix (e.g. `const cleanHex = hex.startsWith('0x') ? hex : '0x' + hex`).
-  7. **Ethers v6 Syntax**: Modern InterwovenKit versions use `ethers` v6. Ensure you use `new ethers.Interface()` and `ethers.parseEther()` instead of the deprecated `ethers.utils` patterns.
-  8. **Move MsgExecute (Transactions)**: In Move `MsgExecute` messages via `initia.js`, you MUST use **camelCase** for fields (`moduleAddress`, `moduleName`, `functionName`, `typeArgs`). The `moduleAddress` MUST be in **bech32** format (e.g., `init1...`). Using hex will result in "empty address string is not allowed" errors.
-  9. **Move CLI Execution (minitiad)**: When using `minitiad tx move execute`, you MUST provide exactly 3 positional arguments: `[module_address] [module_name] [function_name]`. Use the `--args` and `--type-args` flags for parameters. Arguments in `--args` MUST be prefixed with their Move type (e.g., `'["address:init1...", "u64:100"]'`).
-  10. **Auto-Sign API**: The `useInterwovenKit` hook returns an `autoSign` object (not individual functions). Use `autoSign.isEnabledByChain[chainId]` for status, and `autoSign.enable(chainId)` / `autoSign.disable(chainId)` for actions. 
-     - **Setup Requirement**: Auto-signing ONLY works if `enableAutoSign={true}` is passed to the `InterwovenKitProvider` in `main.jsx`.
-  11. Example: `await requestTxSync({ chainId: 'social-1', messages: [...] })`
-- **NPM Warnings**: During scaffolding or dependency installation, you may encounter `ERRESOLVE` or peer dependency warnings. These are common in the current ecosystem and should be treated as non-fatal unless the build actually fails.
-- When generating files, confirm the absolute path with the user if there is ambiguity.
-
-4. Account & Key Management (CRITICAL):
-- **Primary Account:** Use the `gas-station` account for ALL transactions (L1 and L2) unless the user explicitly provides another.
-- **Address Conversion (CLI)**: CLI tools (`initiad`, `minitiad`) generally require bech32 addresses (`init1...`). 
-  - If a user provides a hex address (`0x...`), use `scripts/convert-address.py` to get the bech32 equivalent.
-  - If a command (like `eth_call` or `evm query`) requires a hex address from a bech32 address, ALWAYS use `scripts/to_hex.py <bech32_address>`.
-- **EVM Queries (CLI)**: When using `minitiad query evm call`, you MUST provide 3 arguments: `[sender_bech32] [contract_addr_hex] [input_hex_string]`.
-  - The `input_hex_string` MUST include the `0x` prefix.
-  - Example: `minitiad q evm call init1... 0x... 0x70a08231...`
-- **Key Discovery:** Before running transactions, verify the `gas-station` key exists in the local keychain (`initiad keys show gas-station --keyring-backend test` and `minitiad keys show gas-station --keyring-backend test`).
-- **Auto-Import Flow:** If the `gas-station` key is missing from the keychains, run the following to import it from the Weave configuration. 
-  > **SECURITY NOTE:** This flow is for **Hackathon/Testnet use only**. NEVER auto-import keys from a JSON config if the target network is `mainnet`.
-  ```bash
-  MNEMONIC=$(jq -r '.common.gas_station.mnemonic' ~/.weave/config.json)
-  # ...
-  ```
-
-5. Funding User Wallets (Frontend Readiness):
-- Developers need tokens in their browser wallets (e.g., Keplr or Leap) to interact with their appchain and the Initia L1.
-- When a user provides an address and asks for funding, you should ideally fund them on **both layers**:
-  - **L2 Funding (Appchain):** Essential for gas on their rollup. (`scripts/fund-user.sh --address <init1...> --layer l2 --chain-id <l2_chain_id>`)
-  - **L1 Funding (Initia):** Needed for bridging and L1 features. (`scripts/fund-user.sh --address <init1...> --layer l1`)
-- **Note:** `fund-user.sh` may fail to auto-detect the L2 `chain-id`. Always use `verify-appchain.sh` first to retrieve it and provide it explicitly if needed.
-- **Account Existence (CRITICAL)**: Transactions via `requestTxSync` or `requestTxBlock` will fail with "Account does not exist" if the sender has no balance. ALWAYS ensure a user is funded on L2 before they attempt their first transaction.
-- Always verify the balance of the gas-station account before attempting to fund a user.
-- **Pro Tip: Token Precision & Denoms (CRITICAL)**:
-  - **L1 (INIT)**: The base unit is `uinit` ($10^{-6}$). When a user asks for "1 INIT", you MUST send `1000000uinit`.
-  - **L2 (Appchain)**: Denoms vary (e.g., `GAS`, `umin`, `uinit`). ALWAYS check `minitiad q bank total` to verify the native denom before funding.
-  - **Whole Tokens vs. Base Units**: If a user asks for "X tokens" and the denom is a micro-unit (e.g., `umin`), assume they mean whole tokens and multiply by $10^6$ (Move/Wasm) or $10^{18}$ (EVM) unless they explicitly specify "base units" or "u-amount".
-  - **Multipliers**: For EVM-compatible rollups, the precision is usually 18 decimals. When a user asks for "1 token", send `1000000000000000000` of the base unit.
-  - **Avoid Script Defaults**: Do not rely on `fund-user.sh` to handle precision or denoms automatically. Explicitly calculate the base unit amount and specify the correct denom in your commands.
-
-- **Pro Tip: Move Publishing (CRITICAL)**: When publishing Move modules, the `minitiad tx move publish` command does NOT support the `--named-addresses` flag. You MUST first build the module using `minitiad move build --named-addresses name=0x...` and then publish the generated `.mv` file. The `--upgrade-policy` flag value MUST be uppercase (e.g., `COMPATIBLE`).
-
-- **Pro Tip: Wasm REST Queries (CRITICAL)**: When querying Wasm contract state using the `RESTClient` (e.g., `rest.wasm.smartContractState`), the query object MUST be manually Base64-encoded. The client does NOT handle this automatically. 
-  - **Example**: `const query = Buffer.from(JSON.stringify({ msg: {} })).toString("base64"); await rest.wasm.smartContractState(addr, query);`
-
-- **Pro Tip: Move REST Queries (CRITICAL)**: When querying Move contract state using the `RESTClient` (e.g., `rest.move.view`), the module address MUST be in **bech32** format. Address arguments in `args` MUST be converted to a 32-byte padded hex string and then Base64-encoded.
-  - The response from `rest.move.view` is a `ViewResponse` object; you MUST parse `response.data` (a JSON string) to access the actual values.
-  - **Example**: 
-    ```javascript
-    const b64Addr = Buffer.from(AccAddress.toHex(addr).replace('0x', '').padStart(64, '0'), 'hex').toString('base64');
-    const res = await rest.move.view(mod_bech32, mod_name, func_name, [], [b64Addr]);
-    const data = JSON.parse(res.data); // data is ["shard_count", "relic_count"]
-    ```
-
-- **Pro Tip: Wasm Transaction Messages (CRITICAL)**: When sending a `MsgExecuteContract` via `requestTxBlock`, the `msg` field MUST be a `Uint8Array` (bytes). If using `requestTxSync`, ensure the `messages` (plural) field is used.
-  - **Example**: `msg: new TextEncoder().encode(JSON.stringify({ post_message: { message } }))`
-
-6. Appchain Health & Auto-Startup (CRITICAL):
-- **Detection:** Before any task requiring the appchain (e.g., contracts, transactions, frontend testing), check if it is running.
-- **RPC Discovery:** Default is `http://localhost:26657`, but verify the actual endpoint:
-  - Check `~/.minitia/config/config.toml` (under `[rpc] laddr`)
-  - Or check the local `minitia.config.json` or `~/.minitia/artifacts/config.json`.
-- **Auto-Recovery:** If the RPC is down, do NOT fail immediately. Instead:
-  1. Inform the user: "The appchain appears to be down."
-  2. Attempt to start it: `weave rollup start -d`.
-  3. Wait (~5s) and verify status using `scripts/verify-appchain.sh`.
-- **Verification:** Use `scripts/verify-appchain.sh --gas-station --bots` to ensure both block production and Gas Station readiness.
-
-7. Resolve runtime context:
-- If VM/`chain_id`/endpoint values are unknown, run `scripts/verify-appchain.sh --gas-station --bots`.
-- When using the gas station account, ALWAYS use `--from gas-station --keyring-backend test`.
-- Note: `initiad` usually looks in `~/.initia` and `minitiad` usually looks in `~/.minitia` for keys.
-- If critical values are still missing, run `runtime-discovery.md`.
-- Confirm with user whether discovered local rollup should be used.
-
-8. For new contract projects, ALWAYS use scaffolding first:
-- `scripts/scaffold-contract.sh <move|wasm|evm> <target-dir>`
-- This ensures correct dependency paths (especially for Move) and compile-ready boilerplate.
-- **WasmVM Deployment (CRITICAL)**: Standard `cargo build` binaries often fail WasmVM validation (e.g., "bulk memory support not enabled"). ALWAYS use the `cosmwasm/optimizer` Docker image to build production-ready binaries.
-  - **Architecture Note**: On Apple Silicon (M1/M2/M3), use the `cosmwasm/optimizer-arm64:0.16.1` image variant for significantly better performance and compatibility.
-- **Transaction Verification**: After a `store` or `instantiate` transaction, if the `code_id` or `contract_address` is missing from the output, query the transaction hash using `minitiad q tx <hash>` (note: `q tx` does NOT take a `--chain-id` flag).
-- **Query Command Flags (NEW)**: Unlike transaction commands (`tx`), many query commands (`query` or `q`) do NOT support the `--chain-id` flag. If a query fails with an "unknown flag" error, try removing the chain-id and node flags.
-- **Cleanup (Move)**: After scaffolding a Move project, delete the default placeholder module (e.g., `sources/<project_name>.move`) before creating your custom modules to keep the project clean.
-- **Cleanup (EVM)**: After scaffolding an EVM project, delete the default placeholder files (e.g., `src/Example.sol` and `test/Example.t.sol`) before creating your custom contracts.
-- **Foundry Testing (CRITICAL)**: `testFail` is deprecated in newer versions of Foundry and WILL cause test failures in modern environments. ALWAYS use `vm.expectRevert()` for failure testing.
-- **Context Awareness**: Commands like `forge test` and `forge build` MUST be run from the project root (the directory containing `foundry.toml`). Always `cd` into the project directory before executing these.
-- **Rust/Wasm Unit Testing (NEW)**: In CosmWasm contracts, the `Addr` type does NOT implement `PartialEq<&str>`. When writing unit tests that compare a stored address with a string literal, ALWAYS use `.as_str()` (e.g., `assert_eq!(msg.sender.as_str(), "user1")`) to avoid compilation errors.
-
-9. Move 2.1 specific syntax:
-- **Attributes & Documentation**: When using attributes like `#[view]`, ALWAYS place the documentation comment (`/// ...`) **AFTER** the attribute to avoid compiler warnings.
-- **Example**: 
-  ```move
-  #[view]
-  /// Correct placement of doc comment
-  public fun my_function() { ... }
-  ```
-- **Address Purity**: Move 2.1 view functions are extremely sensitive to argument types. For address-based lookups, ensure the frontend follows the 32-byte Base64 encoding pattern.
-
-10. Implement with Initia-specific correctness:
-- Be explicit about network (`testnet`/`mainnet`), VM, `chain_id`, and endpoints (RPC/REST/JSON-RPC).
-- For frontends, ALWAYS use `scripts/scaffold-frontend.sh <target-dir>` to ensure correct polyfill and provider setup.
-- Keep denom and fee values aligned (`l1_config.gas_prices`, `l2_config.denom`, funded genesis balances).
-- Ensure wallet/provider stack matches selected frontend path.
-- Ensure tx message `typeUrl` and payload shape match chain/VM expectations.
-- Keep address formats correct (`init1...`, `0x...`, `celestia1...`) per config field requirements.
-
-11. Validate before handoff:
-- Run layer-specific checks (for example `scripts/verify-appchain.sh --gas-station --bots` to check health and gas station balance).
-- Verify L2 balances for system accounts if the rollup is active.
-- **Visual Polish (NEW)**: Apps should not just be functional; they should be beautiful. Prioritize modern aesthetics:
-  - **Sticky Header**: ALWAYS include a sticky header that contains the application name/logo and the wallet connection/disconnection controls.
-  - **Wallet Controls**: When connected, show a truncated address (e.g., `init1...pxn4uh`) and a clearly labeled "Disconnect" button.
-  - Use clear spacing (padding/margins).
-  - Prefer card-based layouts for lists.
-  - Center primary Call to Actions (CTAs) like "Connect Wallet" to focus user attention if no other content is present.
-  - **Visual Hierarchy**: Section headers (e.g., "POST A MEMO") should be pronounced (e.g., using uppercase, letter spacing, and a distinct color) to distinguish them from primary content and labels.
-  - **Contextual Visibility**: Hide cross-chain or advanced features (like the Interwoven Bridge section) until a wallet is connected. This prevents redundant connection prompts and keeps the UI focused on the primary onboarding goal.
-  - Ensure interactive elements (buttons/inputs) have hover/focus feedback (e.g., border color changes, slight scaling, or opacity shifts).
-  - Use clean typography (system fonts are fine, but ensure hierarchy).
-  - **High-Fidelity Recommendations (Optional)**:
-    - **Layout Strategy**: For landing pages, prefer a **Centered Hero + App Card** layout. Use a two-column grid on desktop where the left side hosts the marketing/hero content and the right side hosts the interaction card.
-    - **Styling Choice**: **Prefer Vanilla CSS** for tutorials and prototypes. It ensures 100% reliability across different environments and avoids the build-step friction often found with Tailwind v3/v4 migrations.
-    - **Header Style**: Use a sticky glassmorphism header (white/70 with backdrop-blur) for a modern feel.
-    - **Input Protection**: Disable action buttons if inputs are empty, zero, or non-numeric. Provide clear feedback (e.g., "INSUFFICIENT BALANCE") near the input.
-  - **Clean Inputs**: When using `type="number"` for token amounts, ALWAYS include CSS to hide the default browser spin buttons (up/down arrows) for a cleaner, app-like appearance.
-- **UX/Usability Best Practices (NEW)**:
-  - **Feed Ordering**: For boards/feeds, ALWAYS show the newest content first (reverse chronological) to maintain relevance.
-  - **Input Accessibility**: Place primary interaction points (like input fields for posting) ABOVE the feed to ensure they are accessible without scrolling.
-  - **Section Hierarchy**: Use clear section titles (e.g., "Post a Memo", "Board Feed") to help users navigate and balance the UI.
-- **Cross-Layer Consistency (NEW)**: Ensure naming conventions (fields, variants, methods) are consistent across the contract (Rust/Move), CLI commands, and Frontend implementation. For example, if a contract field is named `message` in Rust, the CLI JSON payload and Frontend state should also use `message`, not `content`. Prefer `snake_case` for all JSON keys to align with standard CosmWasm/EVM/Move serialization.
-  - **Guestbook/Board Convention**: For tutorials and guestbook-style applications, use the field name `message` (not `content`) for the post content and the query name `all_messages` (which serializes to `all_messages` in JSON). For the query response, use `AllMessagesResponse` to maintain compatibility with the standard InterwovenKit frontend examples.
-  - **Execute Variant**: Specifically for WasmVM MemoBoard tutorials, use `PostMessage` in Rust (serializing to `post_message`) to match the documentation and frontend scaffolds.
-- **Post-Execution Delay**: When performing a transaction (execute/instantiate) followed immediately by a query in the same task, ALWAYS include a brief delay (e.g., `sleep 5`) between the commands. This ensures the transaction is committed to a block before the query is executed, preventing stale data results.
-- **Bridge Support Intent (NEW)**: When a user asks to "add bridge support," "enable L1 transfers," or "allow moving funds from L1," you MUST:
-  1. Use `openBridge` from the `useInterwovenKit` hook as the primary entry point.
-  2. Implement a single, clear action: "Bridge Assets" (using `openBridge`). 
-  3. **Local Dev Support**: Since local appchains aren't in the Skip registry, the bridge modal will be blank if you use the local `chainId`. For tutorials/demos, default the `srcChainId` to a public testnet (e.g., `initiation-2`) to ensure the UI renders correctly.
-  4. Style this as a secondary "Interwoven Ecosystem" section to distinguish it from the main app logic. Use a single button layout for better focus.
-- Mark interactive commands clearly when the user must run them.
+1. **Classify Layer**: Contract, Frontend, Appchain Ops, or Integration.
+2. **Environment Check**: Verify tools (`cargo`, `forge`, `minitiad`) are in PATH. Use absolute paths if needed.
+3. **Workspace Awareness**: Check for existing `Move.toml` or `package.json` before scaffolding. Use provided scripts for non-interactive scaffolding.
+4. **Pre-Deployment Checklist (CLI)**: Before deploying contracts or sending tokens via CLI, verify the actual environment (set `RPC_ENDPOINT` from runtime discovery):
+   - **Chain ID**: `curl -s "${RPC_ENDPOINT}/status" | jq -r '.result.node_info.network'`
+   - **Native Denom**: `minitiad q bank total --node "${RPC_ENDPOINT}"`
+   - **Balance**: Ensure the `from` account has enough of the *actual* native denom.
+5. **Scaffolding Cleanup**: Delete placeholder modules/contracts after scaffolding.
+6. **Appchain Health**: If RPC is down, attempt `weave rollup start -d` and verify with `scripts/verify-appchain.sh`.
+7. **[MOVE][DEV] Acquires Annotation**: Every function that accesses global storage (using `borrow_global`, `borrow_global_mut`, `move_from`, or calling a function that does) MUST include the `acquires` annotation for that resource type.
+8. **[MOVE][DEV] Reference Rules**: You MUST NOT return a reference (mutable or immutable) derived from a global resource (e.g., via `borrow_global_mut`) from a function unless it is passed as a parameter. Inline the logic or pass the resource as a parameter if needed.
+9. **[MOVE][DEV] Syntax**: Place doc comments (`///`) **AFTER** attributes like `#[view]` or `#[test]`.
+10. **[MOVE][CLI] Publish**: The `minitiad tx move publish` command does NOT use a `--path` flag. Pass the path to the compiled `.mv` file as a positional argument: `minitiad tx move publish <path_to_file>.mv ...`.
+11. **[MOVE][DEV][CLI] Republish Compatibility**: If republishing from the same account fails with `BACKWARD_INCOMPATIBLE_MODULE_UPDATE`, preserve existing public APIs (for example, keep prior public entry/view functions as compatibility wrappers) or rename the module before publishing.
+12. **[ALL-VM][CLI] Broadcast Mode Compatibility**: In current Initia CLIs, broadcast mode supports `sync|async`; do not assume `block` is available.
+13. **[MOVE][CLI] Tx Lookup Timing**: Immediately after `minitiad` broadcast, `minitiad query tx <hash>` may briefly return `tx not found`; poll/retry before treating it as failed.
+14. **[WASM][BUILD] Optimization**: ALWAYS use the CosmWasm optimizer Docker image for production-ready binaries.
+15. **Visual Polish**: Prioritize sticky glassmorphism headers, centered app-card layouts, and clear visual hierarchy.
+16. **UX Excellence**: Feed ordering (newest first), input accessibility (above feed), and interactive feedback (hover/focus).
+17. **[ALL-VM][INTERWOVENKIT] Bridge Support**: Use `openBridge` from `useInterwovenKit`. Default `srcChainId` to a public testnet (e.g., `initiation-2`) for local demos.
+18. **Validation**: Run `scripts/verify-appchain.sh --gas-station --bots` and confirm transaction success before handoff.
 
 ## Progressive Disclosure (Read When Needed)
 
-- Runtime discovery and local rollup detection: `runtime-discovery.md`
-- Contracts (Move/Wasm/EVM): `contracts.md`
-- Frontend (EVM direct JSON-RPC): `frontend-evm-rpc.md`
-- Frontend (InterwovenKit): `frontend-interwovenkit.md`
-- Weave command lookup: `weave-commands.md`
-- Launch config field reference: `weave-config-schema.md`
-- Failure diagnosis and recovery: `troubleshooting.md`
-- End-to-end workflows: `e2e-recipes.md`
+- **Common Tasks (Funding, Addresses, Precision)**: `references/common-tasks.md`
+- **Contracts (Move/Wasm/EVM)**: `references/contracts.md`
+- **Frontend (InterwovenKit)**: `references/frontend-interwovenkit.md`
+- **Frontend (EVM JSON-RPC)**: `references/frontend-evm-rpc.md`
+- **End-to-End Recipes**: `references/e2e-recipes.md`
+- **Runtime Discovery**: `references/runtime-discovery.md`
+- **Weave CLI Reference**: `references/weave-commands.md`
+- **Rollup Config Schema**: `references/weave-config-schema.md`
+- **Troubleshooting & Recovery**: `references/troubleshooting.md`
 
 ## Documentation Fallback
-
-When uncertain about any Initia-specific behavior, prefer official docs:
 
 - Core docs: `https://docs.initia.xyz`
 - InterwovenKit docs: `https://docs.initia.xyz/interwovenkit`
 
-Do not guess when an authoritative answer can be confirmed from docs.
-
 ## Script Usage
 
-- Tool installation (Weave, Initiad, jq): `scripts/install-tools.sh`
-- Contract scaffolding: `scripts/scaffold-contract.sh`
-- Frontend scaffolding: `scripts/scaffold-frontend.sh`
-- Frontend provider sanity check: `scripts/check-provider-setup.sh`
-- Appchain health verification: `scripts/verify-appchain.sh`
-- Address conversion (hex/bech32): `scripts/convert-address.py`
-- System key generation (`bip_utils`; pass `--vm <evm|move|wasm>` for denom-aware defaults; mnemonics are redacted unless `--include-mnemonics --output <file>`): `scripts/generate-system-keys.py`
+- Scaffolding: `scripts/scaffold-contract.sh`, `scripts/scaffold-frontend.sh`
+- Health: `scripts/verify-appchain.sh`
+- Utils: `scripts/convert-address.py`, `scripts/to_hex.py`, `scripts/generate-system-keys.py`
+- Setup: `scripts/install-tools.sh`, `scripts/fund-user.sh`
 
 ## Expected Deliverables
 
-When implementing substantial changes, return:
-
 1. Exact files changed.
-2. Commands to run for setup/build/test.
-3. Verification steps and expected outputs.
-4. Short risk notes for signing, key material, fees, or production-impacting changes.
-
-## Output Rules
-
-- Keep examples internally consistent.
-- Include prerequisites for every command sequence.
-- Avoid unsafe fallback logic in key or signing workflows.
-- Never print raw mnemonics in chat output; if needed, write them to a protected local file.
-- If uncertain about Initia specifics, consult official Initia docs first.
+2. Commands for setup/build/test.
+3. Verification steps and outputs.
+4. Risk notes (security, keys, fees).

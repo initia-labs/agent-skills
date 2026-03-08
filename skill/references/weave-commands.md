@@ -1,5 +1,7 @@
 # Weave Command Reference
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 ## Preflight
 
 ```bash
@@ -62,8 +64,8 @@ weave relayer init
 ```bash
 weave rollup log -n 20
 curl http://localhost:26657/status
-scripts/verify-appchain.sh --gas-station
-scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
+../scripts/verify-appchain.sh --gas-station
+../scripts/verify-appchain.sh --chain-id <CHAIN_ID> --rpc-url <RPC_URL>
 ```
 
 ## Common Paths

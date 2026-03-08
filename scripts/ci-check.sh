@@ -9,6 +9,7 @@ export PYTHONDONTWRITEBYTECODE=1
 SKILL_FILE="skill/SKILL.md"
 SKILL_NAME="initia-appchain-dev"
 SKILLS_CLI_VERSION="1.3.7"
+TAG_LINT_SCRIPT="skill/scripts/lint-tags.sh"
 
 fail() {
   echo "[FAIL] $1"
@@ -24,14 +25,30 @@ warn() {
 }
 
 [[ -f "$SKILL_FILE" ]] || fail "$SKILL_FILE missing"
+[[ -x "$TAG_LINT_SCRIPT" ]] || fail "$TAG_LINT_SCRIPT missing or not executable"
 
-for cmd in rg python3 npx; do
-  command -v "$cmd" >/dev/null 2>&1 || fail "required command not found: $cmd"
-done
+if command -v python3.9 >/dev/null 2>&1; then
+  PYTHON_BIN="python3.9"
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  if python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)'; then
+    PYTHON_BIN="python"
+  else
+    fail "python is present but version is < 3.9; require python3.9+"
+  fi
+else
+  fail "required command not found: python3.9/python3/python"
+fi
 
-if find skill/scripts -type d -name "__pycache__" | rg -q .; then
+command -v npx >/dev/null 2>&1 || fail "required command not found: npx"
+
+if find skill/scripts -type d -name "__pycache__" -print -quit | grep -q .; then
   fail "__pycache__ directories are not allowed under skill/scripts"
 fi
+
+"$TAG_LINT_SCRIPT"
+ok "tag lint passed"
 
 skill_count="$(find . -name SKILL.md -type f | wc -l | tr -d ' ')"
 [[ "$skill_count" -eq 1 ]] || fail "expected exactly one SKILL.md, found $skill_count"
@@ -40,49 +57,62 @@ ok "single SKILL.md present"
 frontmatter="$(awk 'BEGIN{n=0} /^---$/{n++; next} n==1 {print} n==2 {exit}' "$SKILL_FILE")"
 [[ -n "$frontmatter" ]] || fail "frontmatter missing in $SKILL_FILE"
 
-name_count="$(printf "%s\n" "$frontmatter" | rg -c '^name:[[:space:]]' || true)"
-desc_count="$(printf "%s\n" "$frontmatter" | rg -c '^description:[[:space:]]' || true)"
-other_count="$(printf "%s\n" "$frontmatter" | rg -vc '^(name|description):|^[[:space:]]*$' || true)"
+name_count="$(printf "%s\n" "$frontmatter" | grep -Ec '^name:[[:space:]]' || true)"
+desc_count="$(printf "%s\n" "$frontmatter" | grep -Ec '^description:[[:space:]]' || true)"
+other_count="$(printf "%s\n" "$frontmatter" | grep -Evc '^(name|description):|^[[:space:]]*$' || true)"
 
 [[ "$name_count" -eq 1 ]] || fail "frontmatter must contain exactly one name field"
 [[ "$desc_count" -eq 1 ]] || fail "frontmatter must contain exactly one description field"
 [[ "$other_count" -eq 0 ]] || fail "frontmatter must only contain name/description fields"
 ok "frontmatter schema valid"
 
-ref_docs="$(
-  {
-    rg --no-filename -o '`[A-Za-z0-9._/-]+\.md`' skill/*.md || true
-    rg --no-filename -o '\([A-Za-z0-9._/-]+\.md(#[A-Za-z0-9._/-]+)?\)' skill/*.md || true
-  } | tr -d '`()' | sed 's/#.*$//' | sort -u
-)"
-if [[ -n "$ref_docs" ]]; then
-  while IFS= read -r ref; do
-    [[ -f "skill/$ref" ]] || fail "missing referenced doc: skill/$ref"
-  done <<< "$ref_docs"
-fi
+# Validate all internal documentation and script references
+while IFS= read -r -d '' doc_file; do
+  doc_dir="$(dirname "$doc_file")"
+  
+  # Extract backtick references `path/to/file`
+  # Extract markdown links [label](path/to/file)
+  # We look for .md, .sh, and .py files
+  refs="$(
+    {
+      if command -v rg >/dev/null 2>&1; then
+        rg -z --no-filename -o '`[A-Za-z0-9._/-]+\.(md|sh|py)`' "$doc_file" | tr '\0' '\n' || true
+        rg -z --no-filename -o '\]\([A-Za-z0-9._/-]+\.(md|sh|py)(#[A-Za-z0-9._/-]+)?\)' "$doc_file" | tr '\0' '\n' || true
+      else
+        grep -Eo "\`[A-Za-z0-9._/-]+\.(md|sh|py)\`" "$doc_file" || true
+        grep -Eo '\]\([A-Za-z0-9._/-]+\.(md|sh|py)(#[A-Za-z0-9._/-]+)?\)' "$doc_file" || true
+      fi
+    } | sed -E "s/^\`|\`$//g" | sed -E "s/^\]\(|\)$//g" | sed "s/#.*$//" | sort -u
+  )"
 
-ref_scripts="$(
-  {
-    rg --no-filename -o '`scripts/[A-Za-z0-9._/-]+\.(sh|py)`' skill/*.md || true
-    rg --no-filename -o '\(scripts/[A-Za-z0-9._/-]+\.(sh|py)(#[A-Za-z0-9._/-]+)?\)' skill/*.md || true
-  } | tr -d '`()' | sed 's/#.*$//' | sort -u
-)"
-if [[ -n "$ref_scripts" ]]; then
-  while IFS= read -r ref; do
-    [[ -f "skill/$ref" ]] || fail "missing referenced script: skill/$ref"
-  done <<< "$ref_scripts"
-fi
-ok "skill doc references resolve (backticks + markdown links)"
+  if [[ -n "$refs" ]]; then
+    while IFS= read -r ref; do
+      # Skip external links
+      [[ "$ref" =~ ^http ]] && continue
+      
+      # Resolve relative to the document's directory
+      target_path="$doc_dir/$ref"
+      
+      # Check if exists (using -f to ensure it's a file)
+      if [[ ! -f "$target_path" ]]; then
+        fail "broken reference in $doc_file: '$ref' (resolved to $target_path)"
+      fi
+    done <<< "$refs"
+  fi
+done < <(find skill -name "*.md" -print0)
+ok "all internal doc and script references resolve"
 
 if [[ "${SKIP_SKILLS_CLI_CHECK:-0}" == "1" ]]; then
   warn "SKIP_SKILLS_CLI_CHECK=1 set; skipping skills.sh discovery check"
 else
   if skills_output="$(npx -y "skills@${SKILLS_CLI_VERSION}" add . --list 2>&1)"; then
-    printf "%s\n" "$skills_output" | rg -q "Found 1 skill" || fail "skills.sh did not detect one skill"
-    printf "%s\n" "$skills_output" | rg -q "$SKILL_NAME" || fail "skills.sh output missing skill name '$SKILL_NAME'"
+    printf "%s\n" "$skills_output" | grep -q "$SKILL_NAME" || fail "skills.sh output missing skill name '$SKILL_NAME'"
+    if printf "%s\n" "$skills_output" | grep -Eqi "Found[[:space:]]+0[[:space:]]+skills?"; then
+      fail "skills.sh reported zero skills"
+    fi
     ok "skills.sh discovery valid"
   else
-    if printf "%s\n" "$skills_output" | rg -qi "(ENOTFOUND|EAI_AGAIN|ECONN|ETIMEDOUT|network|offline)"; then
+    if printf "%s\n" "$skills_output" | grep -Eqi "(ENOTFOUND|EAI_AGAIN|ECONN|ETIMEDOUT|network|offline)"; then
       warn "skills.sh discovery skipped due to network error"
     else
       fail "skills.sh discovery check failed: $skills_output"
@@ -90,7 +120,7 @@ else
   fi
 fi
 
-python3 -B skill/scripts/convert-address.py 0x1234567890abcdef1234567890abcdef12345678 --prefix init >/dev/null
+"$PYTHON_BIN" -B skill/scripts/convert-address.py 0x1234567890abcdef1234567890abcdef12345678 --prefix init >/dev/null
 ok "convert-address.py smoke test"
 
 scratch="$(mktemp -d)"
@@ -176,9 +206,9 @@ ok "check-provider-setup.sh smoke test"
 skill/scripts/verify-appchain.sh --help >/dev/null
 ok "verify-appchain.sh smoke test"
 
-if python3 -B -c "import bip_utils" >/dev/null 2>&1; then
-  python3 -B skill/scripts/generate-system-keys.py --vm evm --da initia >/dev/null
-  if python3 -B skill/scripts/generate-system-keys.py --vm evm --include-mnemonics >/dev/null 2>&1; then
+if "$PYTHON_BIN" -B -c "import bip_utils" >/dev/null 2>&1; then
+  "$PYTHON_BIN" -B skill/scripts/generate-system-keys.py --vm evm --da initia >/dev/null
+  if "$PYTHON_BIN" -B skill/scripts/generate-system-keys.py --vm evm --include-mnemonics >/dev/null 2>&1; then
     fail "generate-system-keys.py should require --output when --include-mnemonics is set"
   fi
   ok "generate-system-keys.py smoke test"

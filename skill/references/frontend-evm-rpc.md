@@ -1,5 +1,7 @@
 # Frontend (EVM Direct RPC)
 
+Tagging: Follow the [VM][CONTEXT] standard from ../SKILL.md (Tagging Standard).
+
 Use this path by default when VM is `evm` and the app only needs normal EVM wallet/contract interaction.
 
 Do not require InterwovenKit for this baseline path.
@@ -119,6 +121,7 @@ When `chainId` or JSON-RPC is unknown, run `runtime-discovery.md`, then confirm 
 
 ## Gotchas
 
+- **View Functions (msg.sender)**: If you are querying a contract's state via `eth_call` (e.g., `getBalance()`) and the contract uses `msg.sender` internally, you **MUST** include the `from` field in the call parameters with the user's hex address. Omitting it will default to a zero address and return incorrect data.
 - Ensure `chainId` in wagmi config matches wallet-selected chain.
 - Ensure JSON-RPC endpoint matches the same chain.
 - Use `http://localhost:8545`/`http://127.0.0.1:8545` only if your rollup is running locally.
@@ -127,5 +130,5 @@ When `chainId` or JSON-RPC is unknown, run `runtime-discovery.md`, then confirm 
 Sanity check provider setup:
 
 ```bash
-scripts/check-provider-setup.sh --mode evm-rpc <providers-file.tsx>
+../scripts/check-provider-setup.sh --mode evm-rpc <providers-file.tsx>
 ```
