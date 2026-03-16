@@ -27,7 +27,7 @@ Ask for missing context before writing code:
 2. Is provider wiring already present?
 3. Which network is targeted (testnet/mainnet/custom appchain)?
 4. Is user-confirmed tx UX required (`requestTxBlock`) or direct submit acceptable?
-5. Are chain endpoints and contract addresses known?
+5. Are chain endpoints and deployed addresses known?
 
 If VM is `evm` and user only needs normal contract interaction over JSON-RPC, use `frontend-evm-rpc.md` as default instead of this file.
 
@@ -105,7 +105,7 @@ Avoid hard-coded version matrices in this skill.
 7. Prefer `rest.move.resource` for state queries as it is more robust than view functions.
 8. **IMPORTANT (v2.4.0)**: Use `openConnect` (not `openModal`) to open the wallet connection modal. Extract it from the `useInterwovenKit` hook.
 9. **IMPORTANT (v2.4.0)**: `useInterwovenKit` does NOT export a `rest` client. You MUST instantiate `RESTClient` from `@initia/initia.js` manually for queries.
-10. If the app depends on a deployed contract, store the resolved contract address in runtime config (for example, `.env` / `VITE_*`) instead of leaving placeholder constants in component code.
+10. If the app depends on a deployed address, store the resolved live address in runtime config (for example, `.env` / `VITE_*`) instead of leaving placeholder constants in component code.
 11. If `.env` values are added or changed in a running Vite app, restart the dev server so the new values are loaded.
 12. **Auto-Sign API (STRICTLY OPT-IN)**:
     - **Setup Requirement**: If (and only if) auto-sign support is requested, `enableAutoSign={true}` must be passed to the `InterwovenKitProvider` in `main.jsx`.

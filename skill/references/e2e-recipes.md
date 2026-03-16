@@ -112,7 +112,7 @@ Implement wallet/tx flow from the selected frontend reference file:
 Confirm frontend runtime values match rollup:
 - `chain_id`
 - RPC/LCD endpoints
-- module addresses (if contract calls are enabled)
+- deployed addresses
 - environment defaults (`TESTNET` vs `MAINNET`) and wallet active network
 
 ## Recipe 3: Powering Up with Native Features

@@ -8,7 +8,7 @@ Single-skill package for end-to-end Initia development:
 ## Install (skills.sh)
 
 ```bash
-npx -y skills@1.3.7 add https://github.com/initia-labs/agent-skills
+npx skills add initia-labs/agent-skills
 ```
 
 ## Install (manual script)
@@ -40,7 +40,7 @@ Custom destination:
 ## Local check
 
 ```bash
-npx -y skills@1.3.7 add . --list
+npx skills add . --list
 ```
 
 Expected output: one skill named `initia-appchain-dev`.
