@@ -527,7 +527,7 @@ minitiad tx evm call <CONTRACT_ADDRESS> $SIG --from gas-station ...
 
 For any deploy flow, return:
 
-1. Deployed address.
+1. Deployed contract address.
 2. Transaction hash.
 3. Network/chain ID used.
 4. One working read or write command to verify deployment.
@@ -580,7 +580,7 @@ For any deploy flow, return:
   - **Fix**: Add a small delay (e.g., `sleep 2`) between transactions or ensure the previous transaction is indexed before sending the next one.
 
 - **Transaction Indexing Latency**: Querying a transaction (e.g., `minitiad q tx <HASH>`) immediately after sending it may return a "not found" error because the block hasn't been indexed.
-  - **Fix**: Add a small delay (e.g., `sleep 5`) before querying transaction results to retrieve deployed addresses or event data.
+  - **Fix**: Add a small delay (e.g., `sleep 5`) before querying transaction results to retrieve contract addresses or event data.
 
 - [MOVE] module addresses and named addresses must align with deployment config.
 - [WASM] keep query/execute/instantiate boundaries explicit and typed.
