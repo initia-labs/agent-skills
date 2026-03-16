@@ -17,7 +17,7 @@ Collect missing inputs before implementation:
 2. Which network is targeted (`testnet` or `mainnet`)?
 3. Is this a fresh rollup launch or operation/debug on an existing rollup?
 4. For frontend work, is this an EVM JSON-RPC app or an InterwovenKit wallet/bridge app?
-5. What chain-specific values are known (`chain_id`, RPC URL, module address, denom)?
+5. What chain-specific values are known (`chain_id`, RPC URL, deployed contract address, denom)?
 
 If critical values are missing, ask concise follow-up questions before generating final code/config.
 
@@ -178,7 +178,7 @@ Do not treat a successful `minitiad version` command by itself as sufficient ver
 
 ### Frontend Requirements (CRITICAL)
 - **Placeholder Sync**: Immediately after scaffolding a frontend, you MUST update all placeholders in `main.jsx` (like `<INSERT_APPCHAIN_ID_HERE>`, `<INSERT_NATIVE_DENOM_HERE>`, etc.) with the actual values discovered during the Research phase (e.g., `bank-1`, `GAS`, `minievm`).
-- **Runtime Config Sync**: If the frontend depends on a deployed contract address, you MUST wire the resolved live address into runtime config (for example, `.env` / `VITE_*`) instead of leaving only placeholders or examples. If `.env` values are added or changed for a running Vite app, tell the user to restart the dev server.
+- **Runtime Config Sync**: If the frontend depends on a deployed contract address, you MUST wire the resolved live address into runtime config (for example, `.env` / `VITE_*`) instead of leaving only placeholders or examples. For Move-specific APIs and code, keep the term `module address` where that distinction matters. If `.env` values are added or changed for a running Vite app, tell the user to restart the dev server.
 - **Hook Exports**: `useInterwovenKit` exports `initiaAddress`, `address`, `username`, `openConnect`, `openWallet`, `openBridge`, `requestTxBlock`, `requestTxSync`, and `autoSign`.
 - **Transaction Guards**: Before calling `requestTxBlock` or `requestTxSync`, you MUST verify that `initiaAddress` is defined.
 - **[ALL-VM] Sender Address**: In Initia, the `sender` field for all message types (`MsgCall`, `MsgExecute`, `MsgExecuteContract`) MUST be the Bech32 address. Use `initiaAddress` for this field to ensure compatibility across EVM, Move, and Wasm appchains. Using the hex `address` on an EVM chain for the `sender` field in a Cosmos-style message will cause an "empty address string" or "decoding bech32 failed" error.
